@@ -1,7 +1,3 @@
-// Import statements
-//import core_dao.aleo;
-//import governance_token.aleo;
-//import credits.aleo;
 
 
 program privadao_proposal_management_v1.aleo {
@@ -622,7 +618,7 @@ Mapping::set(user_vetos, key, true);
     }
 
     // Helper functions
-    async function apply_slashing(slash_id: field) {
+    async function apply_slashing(slash_id: field)  {
         let slash_proposal: SlashingProposal = Mapping::get(slashing_proposals, slash_id);
         let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, (slash_proposal.target, slash_proposal.category));
 
@@ -785,7 +781,7 @@ async function execute_parameter_change(proposal_id: field) {
     Mapping::set(dao_parameters, 0field, new_params);
 }
 
-inline execute_contract_upgrade(proposal_id: field) {
+async function execute_contract_upgrade(proposal_id: field) {
     // In Leo, we can't directly upgrade contracts.
     // Instead, we can set a flag indicating that an upgrade is ready,
     // and the actual upgrade would be performed off-chain.
