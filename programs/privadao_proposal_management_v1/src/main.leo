@@ -802,7 +802,7 @@ async function initiate_multisig_execution(proposal_id: field) {
 transition calculate_voting_power(token_amount: u64, token_lock_duration: u64) -> u64 {
     // Implement a simple quadratic voting power calculation
     // The voting power is the square root of the token amount, multiplied by a time bonus
-    let base_power: u64 = (token_amount as u128).square_root();
+    let base_power: u64 = (token_amount as field).square_root();
     let time_bonus: u64 = 100u64 + (token_lock_duration / 2_592_000u64); // 1% bonus per month locked
     return (base_power * time_bonus) / 100u64;
 }
