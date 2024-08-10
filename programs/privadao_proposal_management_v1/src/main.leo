@@ -27,6 +27,19 @@ program privadao_proposal_management_v1.aleo {
         locked_until: u32,
     }
 
+    struct Vote {
+        proposal_id: field,
+        voter: address,
+        vote: u64,
+        weight: u64,
+    }
+
+    struct VoteAggregate {
+        proposal_id: field,
+        vote_count: u64,
+        vote_tally: [u64; 10], // Assumes max 10 options
+        vote_merkle_root: field,
+    }
 
 
     // Structs
@@ -143,9 +156,7 @@ program privadao_proposal_management_v1.aleo {
         start_time: u32,
     }
 
-    struct VoteAggregate {
-        vote_tally: [u64; 10],
-    }
+
 
     struct Comments {
         comments: [Comment; 32],
@@ -732,7 +743,7 @@ struct MultiSigProposal {
 
 // Implement the functions
 
-inline execute_treasury_action(action: TreasuryAction) {
+async function execute_treasury_action(action: TreasuryAction) {
     let current_balance: TreasuryBalance = Mapping::get_or_use(treasury, action.asset, TreasuryBalance { asset: action.asset, amount: 0u64 });
     
     if action.action_type == 0u8 { // Transfer
@@ -756,7 +767,7 @@ inline execute_treasury_action(action: TreasuryAction) {
     }
 }
 
-inline execute_parameter_change(proposal_id: field) {
+async function execute_parameter_change(proposal_id: field) {
     let proposal: Proposal = Mapping::get(proposals, proposal_id);
     let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
         quorum_threshold: 100_000_000_000u64,
