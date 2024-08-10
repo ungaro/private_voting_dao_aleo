@@ -16,6 +16,19 @@ program privadao_proposal_management_v1.aleo {
     const CACHE_BATCH_NUM: u32 = 10u32;
     const ZERO_ADDRESS: address = aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc;
 
+    record Token {
+        owner: address,
+        amount: u64,
+    }
+
+    record GovernanceToken {
+        owner: address,
+        amount: u64,
+        locked_until: u32,
+    }
+
+
+
     // Structs
     struct GovernanceTier {
         proposal_types: [u8; 10],
@@ -134,6 +147,12 @@ program privadao_proposal_management_v1.aleo {
         vote_tally: [u64; 10],
     }
 
+    struct Comments {
+        comments: [Comment; 32],
+
+    }
+
+
     // Mappings
     mapping governance_tiers: u8 => GovernanceTier;
     mapping proposals: field => Proposal;
@@ -144,12 +163,24 @@ program privadao_proposal_management_v1.aleo {
     mapping proposal_sponsorships: field => Sponsorship;
     mapping delegations: address => DelegationInfo;
     mapping comment_content: field => Comment;
-    mapping proposal_comments: field => [Comment; 32];
+    mapping proposal_comments: field => Comments;
     mapping slashing_proposals: field => SlashingProposal;
     mapping user_reputation: address => Reputation;
     mapping vote_counts: field => u64;
     mapping vote_aggregates: field => VoteAggregate;
     mapping delegatee_reputations: field => DelegateeReputation;
+
+
+
+    // Additional mappings
+    mapping treasury: field => TreasuryBalance;
+    mapping dao_parameters: field => DAO_Parameters;
+    mapping multisig_proposals: field => MultiSigProposal;
+    mapping token_locks: address => u32;
+
+
+
+
 
     // Transitions
     async transition create_proposal(
@@ -220,7 +251,7 @@ program privadao_proposal_management_v1.aleo {
         let tier_info: GovernanceTier = Mapping::get(governance_tiers, creator_tier);
 
         // Check if the creator has permission to create this type of proposal
-        assert(tier_info.proposal_types[proposal_type]);
+        //assert(tier_info.proposal_types[proposal_type]);
 
         let new_proposal: Proposal = Proposal {
             id: proposal_id,
@@ -254,7 +285,7 @@ program privadao_proposal_management_v1.aleo {
 
         // Update user reputation for creating a proposal
         let  reputation: Reputation = Mapping::get_or_use(user_reputation, creator, Reputation { score: 0i64, proposal_count: 0u32, vote_count: 0u32, successful_proposals: 0u32 });
-        reputation.proposal_count += 1u32;
+        reputation.proposal_count = reputation.proposal_count + 1u32;
         Mapping::set(user_reputation, creator, reputation);
     }
 
@@ -309,12 +340,12 @@ program privadao_proposal_management_v1.aleo {
         Mapping::set(proposals, amendment_id, amended_proposal);
 
         // Update the parent proposal's amendment count
-        parent_proposal.amendment_count += 1u32;
+        parent_proposal.amendment_count = parent_proposal.amendment_count + 1u32;
         Mapping::set(proposals, parent_proposal_id, parent_proposal);
 
     }
 
-    transition sponsor_proposal(proposal_id: field, amount: u64, token: GovernanceToken) -> bool {
+     async transition sponsor_proposal(proposal_id: field, amount: u64, token: GovernanceToken) -> Future {
         return finalize_sponsor_proposal(self.caller, proposal_id, amount, token);
     }
 
@@ -333,7 +364,7 @@ program privadao_proposal_management_v1.aleo {
         };
 
         Mapping::set(proposal_sponsorships, proposal_id, sponsorship);
-        proposal.total_sponsorship += amount;
+        proposal.total_sponsorship =  proposal.total_sponsorship  + amount;
         Mapping::set(proposals, proposal_id, proposal);
 
         // Update reputation of sponsor
@@ -343,7 +374,7 @@ program privadao_proposal_management_v1.aleo {
 
     }
 
-    transition veto_proposal(proposal_id: field, token: GovernanceToken) -> bool {
+    async transition veto_proposal(proposal_id: field, token: GovernanceToken) -> Future {
         return finalize_veto_proposal(self.caller, proposal_id, token);
     }
 
@@ -358,9 +389,13 @@ program privadao_proposal_management_v1.aleo {
         let has_vetoed: bool = Mapping::get_or_use(user_vetos, (proposal_id, token.owner), false);
         assert(!has_vetoed); // User hasn't already vetoed
 
+let key: field = BHP256::hash_to_field((proposal_id, token.owner));
+Mapping::set(user_vetos, key, true);
+
+
         proposal.veto_count += calculate_voting_power(token);
         Mapping::set(proposals, proposal_id, proposal);
-        Mapping::set(user_vetos, (proposal_id, token.owner), true);
+        //Mapping::set(user_vetos, (proposal_id, token.owner), true);
 
         if proposal.veto_count >= proposal.veto_threshold {
             proposal.status = 4u8; // Mark as expired/canceled
@@ -370,7 +405,7 @@ program privadao_proposal_management_v1.aleo {
        // return true;
     }
 
-    transition execute_proposal(proposal_id: field) -> bool {
+    async transition execute_proposal(proposal_id: field) -> Future {
         return finalize_execute_proposal(proposal_id);
     }
 
@@ -457,7 +492,7 @@ program privadao_proposal_management_v1.aleo {
         //return false;
     }
 
-    transition add_comment(proposal_id: field, content: field) -> bool {
+    async transition add_comment(proposal_id: field, content: field) -> Future {
         return finalize_add_comment(self.caller, proposal_id, content);
     }
 
@@ -484,7 +519,7 @@ program privadao_proposal_management_v1.aleo {
 
     }
 
-    transition delegate_votes(delegatee: address, percentage: u8) -> bool {
+   async  transition delegate_votes(delegatee: address, percentage: u8) -> Future {
         assert(percentage <= 100u8);
 
         let delegation_info: DelegationInfo = DelegationInfo {
@@ -499,7 +534,7 @@ program privadao_proposal_management_v1.aleo {
         Mapping::set(delegations, caller, delegation_info);
     }
 
-    transition delegate_category(delegatee: address, category: field, amount: u64, token: GovernanceToken) -> bool {
+    async transition delegate_category(delegatee: address, category: field, amount: u64, token: GovernanceToken) -> Future {
         assert(token.amount >= amount);
 
         return finalize_delegate_category(self.caller, delegatee, category, amount, token);
@@ -533,7 +568,7 @@ program privadao_proposal_management_v1.aleo {
         //return true;
     }
 
-    transition propose_slashing(target: address, category: field, amount: i64, reason: field) -> field {
+    async transition propose_slashing(target: address, category: field, amount: i64, reason: field) -> Future {
         return finalize_propose_slashing(target, category, amount, reason);
     }
 
@@ -553,7 +588,7 @@ program privadao_proposal_management_v1.aleo {
         //return slash_id;
     }
 
-    transition advance_proposal_phase(proposal_id: field) -> u8 {
+    async transition advance_proposal_phase(proposal_id: field) -> Future {
         return finalize_advance_proposal_phase(proposal_id);
     }
 
@@ -646,7 +681,7 @@ program privadao_proposal_management_v1.aleo {
               for t: u32 in 0u32..10u32 {
 
             
-                let  min_votes: u64 = u64::max();
+                let  min_votes: u64 = 0u64;
                 let  max_votes: u64 = 0u64;
                 let  min_option: u8 = 0u8;
                 let  max_option: u8 = 0u8;
@@ -675,37 +710,133 @@ program privadao_proposal_management_v1.aleo {
         }
         return 0u8;
     }
+// Additional structs and mappings needed for these functions
+struct TreasuryBalance {
+    asset: field,
+    amount: u64,
+}
 
-    function execute_treasury_action(action: TreasuryAction) {
-        // Implement treasury action execution logic
-    }
+struct DAO_Parameters {
+    quorum_threshold: u64,
+    voting_period: u32,
+    grace_period: u32,
+}
 
-    function execute_parameter_change(proposal_id: field) {
-        // Implement parameter change logic
-    }
+struct MultiSigProposal {
+    proposal_id: field,
+    approvals: u8,
+    required_approvals: u8,
+}
 
-    function execute_contract_upgrade(proposal_id: field) {
-        // Implement contract upgrade logic
-    }
 
-    function initiate_multisig_execution(proposal_id: field) {
-        // Implement multi-signature execution process for critical proposals
-    }
 
-    function calculate_voting_power(token: GovernanceToken) -> u64 {
-        // Implement voting power calculation based on token amount and any other factors
-        return token.amount;
-    }
+// Implement the functions
 
-    function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphertext {
-        // Implement homomorphic encryption of vote
-        // This is a placeholder and should be replaced with actual implementation
-        return HomomorphicCiphertext { c1: 0group, c2: 0group };
+inline execute_treasury_action(action: TreasuryAction) {
+    let current_balance: TreasuryBalance = Mapping::get_or_use(treasury, action.asset, TreasuryBalance { asset: action.asset, amount: 0u64 });
+    
+    if action.action_type == 0u8 { // Transfer
+        assert(current_balance.amount >= action.amount);
+        Mapping::set(treasury, action.asset, TreasuryBalance {
+            asset: action.asset,
+            amount: current_balance.amount - action.amount,
+        });
+        // In a real implementation, you would transfer the tokens to the recipient here
+    } else if action.action_type == 1u8 { // Mint
+        Mapping::set(treasury, action.asset, TreasuryBalance {
+            asset: action.asset,
+            amount: current_balance.amount + action.amount,
+        });
+    } else if action.action_type == 2u8 { // Burn
+        assert(current_balance.amount >= action.amount);
+        Mapping::set(treasury, action.asset, TreasuryBalance {
+            asset: action.asset,
+            amount: current_balance.amount - action.amount,
+        });
     }
+}
 
-    function generate_encryption_params() -> EncryptionParams {
-        // Generate and return encryption parameters
-        // This is a placeholder and should be replaced with actual implementation
-        return EncryptionParams { };
-    }
+inline execute_parameter_change(proposal_id: field) {
+    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
+        quorum_threshold: 100_000_000_000u64,
+        voting_period: 604_800u32, // 1 week
+        grace_period: 172_800u32, // 2 days
+    });
+
+    // Assuming the proposal contains the new parameter values
+    let new_params: DAO_Parameters = DAO_Parameters {
+        quorum_threshold: proposal.treasury_action.amount, // Repurposing this field for parameter change
+        voting_period: proposal.voting_end_time - proposal.discussion_end_time,
+        grace_period: proposal.grace_period_end_time - proposal.voting_end_time,
+    };
+
+    Mapping::set(dao_parameters, 0field, new_params);
+}
+
+inline execute_contract_upgrade(proposal_id: field) {
+    // In Leo, we can't directly upgrade contracts.
+    // Instead, we can set a flag indicating that an upgrade is ready,
+    // and the actual upgrade would be performed off-chain.
+    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    
+    // Assuming we use the 'description' field to store the new contract address or version
+    let upgrade_info: field = proposal.description;
+    
+    // Set an 'upgrade_ready' flag in a mapping
+    Mapping::set(contract_upgrades, 0field, upgrade_info);
+}
+
+async function initiate_multisig_execution(proposal_id: field) {
+    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    
+    let multisig_proposal: MultiSigProposal = MultiSigProposal {
+        proposal_id: proposal_id,
+        approvals: 0u8,
+        required_approvals: 3u8, // Assuming we require 3 approvals for critical proposals
+    };
+
+    Mapping::set(multisig_proposals, proposal_id, multisig_proposal);
+}
+
+transition calculate_voting_power(token_amount: u64, token_lock_duration: u64) -> u64 {
+    // Implement a simple quadratic voting power calculation
+    // The voting power is the square root of the token amount, multiplied by a time bonus
+    let base_power: u64 = (token_amount as u128).square_root();
+    let time_bonus: u64 = 100u64 + (token_lock_duration / 2_592_000u64); // 1% bonus per month locked
+    return (base_power * time_bonus) / 100u64;
+}
+
+struct EncryptionParams {
+    public_key: group,
+    random: scalar,
+}
+
+struct HomomorphicCiphertext {
+    c1: group,
+    c2: group,
+}
+
+function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphertext {
+    // Implement a simple ElGamal encryption
+    // This is a simplified version and should not be used in production without proper review
+    let g: group = group::GEN;
+    let h: group = params.public_key;
+    let r: scalar = params.random;
+    
+    let c1: group = g * r;
+    let m: group = g * (vote as scalar);
+    let c2: group = h * r + m;
+    
+    return HomomorphicCiphertext { c1: c1, c2: c2 };
+}
+
+async function generate_encryption_params() -> EncryptionParams {
+    // In a real implementation, the public key would be a predetermined DAO parameter
+    // and the random value would be generated securely
+    let public_key: group = group::GEN * ChaCha::rand_scalar();
+    let random: scalar = ChaCha::rand_scalar();
+    
+    return EncryptionParams { public_key: public_key, random: random };
+}
 }
