@@ -3,10 +3,10 @@
 program privadao_proposal_management_v1.aleo {
     // Constants
     //7u8 * 24u8 * 60u8 * 60u8; // 1 week in seconds
-    const MIN_PROPOSAL_DURATION: u32 = 604_800u32; // 1 week in seconds
+    const MIN_PROPOSAL_DURATION: u32 = 604800u32; // 1 week in seconds
     //30u8 * 24u8 * 60u8 * 60u8; // 30 days in seconds
-    const MAX_PROPOSAL_DURATION: u32 = 2_592_000u32; // 30 days in seconds
-    const QUORUM_THRESHOLD: u64 = 100_000_000_000u64; // 10% of total supply in base units
+    const MAX_PROPOSAL_DURATION: u32 = 2592000u32; // 30 days in seconds
+    const QUORUM_THRESHOLD: u64 = 100000000000u64; // 10% of total supply in base units
     const CONVICTION_GROWTH_RATE: u64 = 900u64; // 90% of maximum per week
     const WITHDRAW_DELAY: u32 = 360u32;
     const CACHE_BATCH_NUM: u32 = 10u32;
@@ -160,6 +160,15 @@ program privadao_proposal_management_v1.aleo {
     }
 
 
+    struct Tags {
+        tag1: field,
+        tag2: field,
+        tag3: field,
+        tag4: field,
+        tag5: field,
+
+    }
+
     // Mappings
     mapping governance_tiers: u8 => GovernanceTier;
     mapping proposals: field => Proposal;
@@ -176,6 +185,7 @@ program privadao_proposal_management_v1.aleo {
     mapping vote_counts: field => u64;
     mapping vote_aggregates: field => VoteAggregate;
     mapping delegatee_reputations: field => DelegateeReputation;
+    mapping contract_upgrade: field => field;
 
 
 
@@ -201,7 +211,7 @@ program privadao_proposal_management_v1.aleo {
         grace_period_duration: u32,
         required_sponsorship: u64,
         veto_threshold: u64,
-        tags: [field; 5],
+        tags: [field;5],
         category: field,
         security_level: u8
     ) -> Future {
@@ -292,10 +302,9 @@ program privadao_proposal_management_v1.aleo {
 
         // Update user reputation for creating a proposal
         let  reputation: Reputation = Mapping::get_or_use(user_reputation, creator, Reputation { score: 0i64, proposal_count: 0u32, vote_count: 0u32, successful_proposals: 0u32 });
-        reputation.proposal_count = reputation.proposal_count + 1u32;
-        Mapping::set(user_reputation, creator, reputation);
+        let new_proposal_count:u32 = reputation.proposal_count+1u32;
+        Mapping::set(user_reputation, creator, Reputation { score: reputation.score, proposal_count: new_proposal_count, vote_count: reputation.vote_count, successful_proposals: reputation.successful_proposals });
     }
-
 
 
     
@@ -412,6 +421,13 @@ Mapping::set(user_vetos, key, true);
        // return true;
     }
 
+/*
+    async transition supply(public asset: address, amount: u128, on_behalf_of: address) -> Future {
+        return finalize_supply(asset, amount, on_behalf_of);
+    }
+
+    async function finalize_supply(asset: address, amount: u128, on_behalf_of: address) {
+*/
     async transition execute_proposal(proposal_id: field) -> Future {
         return finalize_execute_proposal(proposal_id);
     }
@@ -544,10 +560,10 @@ Mapping::set(user_vetos, key, true);
     async transition delegate_category(delegatee: address, category: field, amount: u64, token: GovernanceToken) -> Future {
         assert(token.amount >= amount);
 
-        return finalize_delegate_category(self.caller, delegatee, category, amount, token);
+        return finalize_delegate_category(self.caller, delegatee, category, amount);
     }
 
-    async function finalize_delegate_category(caller: address, delegatee: address, category: field, amount: u64, token: GovernanceToken)  {
+    async function finalize_delegate_category(caller: address, delegatee: address, category: field, amount: u64)  {
         let delegatee_rep: DelegateeReputation = Mapping::get_or_use(delegatee_reputations, (delegatee, category), 
             DelegateeReputation {
                 delegatee_address: delegatee,
@@ -664,7 +680,7 @@ Mapping::set(user_vetos, key, true);
         }
     }
 
-    inline is_dao_member(addr: address) -> bool {
+    async function is_dao_member(addr: address) -> bool {
         let lock_until: u32 = Mapping::get_or_use(token_locks, addr, 0u32);
         return lock_until > block.height;
     }
@@ -781,7 +797,9 @@ async function execute_parameter_change(proposal_id: field) {
     Mapping::set(dao_parameters, 0field, new_params);
 }
 
-async function execute_contract_upgrade(proposal_id: field) {
+
+
+async inline execute_contract_upgrade(proposal_id: field) {
     // In Leo, we can't directly upgrade contracts.
     // Instead, we can set a flag indicating that an upgrade is ready,
     // and the actual upgrade would be performed off-chain.
@@ -806,11 +824,38 @@ async function initiate_multisig_execution(proposal_id: field) {
     Mapping::set(multisig_proposals, proposal_id, multisig_proposal);
 }
 
+// Integer square root function for u64 using a for loop
+function isqrt(x: u64) -> u64 {
+    if x == 0u64 {
+        return 0u64;
+    }
+    
+    let  result: u64 = 0u64;
+/*
+ for i: u8 in 0u8..4u8 {
+        sum += a[i];
+    }
+    */
+    // We use 32 iterations as the maximum, which is sufficient for u64
+    for i:u64 in 0u64..32u64 {
+        let bit: u64 = 1u64 << (31u64 - i);
+        let temp: u64 = result | bit;
+        if temp * temp <= x {
+            result = temp;
+        }
+    }
+    
+    return result;
+}
+
 transition calculate_voting_power(token_amount: u64, token_lock_duration: u64) -> u64 {
-    // Implement a simple quadratic voting power calculation
-    // The voting power is the square root of the token amount, multiplied by a time bonus
-    let base_power: u64 = (token_amount as field).square_root();
+    // Calculate the square root using our integer square root function
+    let base_power: u64 = isqrt(token_amount);
+    
+    // Calculate time bonus (unchanged)
     let time_bonus: u64 = 100u64 + (token_lock_duration / 2_592_000u64); // 1% bonus per month locked
+    
+    // Calculate and return final voting power
     return (base_power * time_bonus) / 100u64;
 }
 
@@ -846,4 +891,9 @@ async function generate_encryption_params() -> EncryptionParams {
     
     return EncryptionParams { public_key: public_key, random: random };
 }
+
+
+
+
+
 }
