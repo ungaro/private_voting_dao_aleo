@@ -452,17 +452,107 @@ Mapping::set(user_vetos, key, true);
             // Continuing from the previous execute_proposal finalize function
             if proposal.security_level == 2u8 {
                 // For critical proposals, initiate multi-sig process
-                initiate_multisig_execution(proposal_id);
+               // initiate_multisig_execution(proposal_id);
+
+    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    
+    let multisig_proposal: MultiSigProposal = MultiSigProposal {
+        proposal_id: proposal_id,
+        approvals: 0u8,
+        required_approvals: 3u8, // Assuming we require 3 approvals for critical proposals
+    };
+
+    Mapping::set(multisig_proposals, proposal_id, multisig_proposal);
+
             } else {
                 // Execute based on proposal type
                 if proposal.proposal_type == 0u8 {
-                    execute_treasury_action(proposal.treasury_action);
+                    //execute_treasury_action(proposal.treasury_action);
+                    //async function execute_treasury_action(action: TreasuryAction) {
+    let action:TreasuryAction = proposal.treasury_action;
+
+    let current_balance: TreasuryBalance = Mapping::get_or_use(treasury, action.asset, TreasuryBalance { asset: action.asset, amount: 0u64 });
+    
+    if action.action_type == 0u8 { // Transfer
+        assert(current_balance.amount >= action.amount);
+        Mapping::set(treasury, action.asset, TreasuryBalance {
+            asset: action.asset,
+            amount: current_balance.amount - action.amount,
+        });
+        // In a real implementation, you would transfer the tokens to the recipient here
+    } else if action.action_type == 1u8 { // Mint
+        Mapping::set(treasury, action.asset, TreasuryBalance {
+            asset: action.asset,
+            amount: current_balance.amount + action.amount,
+        });
+    } else if action.action_type == 2u8 { // Burn
+        assert(current_balance.amount >= action.amount);
+        Mapping::set(treasury, action.asset, TreasuryBalance {
+            asset: action.asset,
+            amount: current_balance.amount - action.amount,
+        });
+    }
+
+
                 } else if proposal.proposal_type == 1u8 {
-                    execute_parameter_change(proposal_id);
+                    //execute_parameter_change(proposal_id);
+
+    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
+        quorum_threshold: 100_000_000_000u64,
+        voting_period: 604_800u32, // 1 week
+        grace_period: 172_800u32, // 2 days
+    });
+
+    // Assuming the proposal contains the new parameter values
+    let new_params: DAO_Parameters = DAO_Parameters {
+        quorum_threshold: proposal.treasury_action.amount, // Repurposing this field for parameter change
+        voting_period: proposal.voting_end_time - proposal.discussion_end_time,
+        grace_period: proposal.grace_period_end_time - proposal.voting_end_time,
+    };
+
+    Mapping::set(dao_parameters, 0field, new_params);
+
+
+
                 } else if proposal.proposal_type == 2u8 {
-                    execute_contract_upgrade(proposal_id);
+                   // execute_contract_upgrade(proposal_id);
+
+    // In Leo, we can't directly upgrade contracts.
+    // Instead, we can set a flag indicating that an upgrade is ready,
+    // and the actual upgrade would be performed off-chain.
+    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    
+    // Assuming we use the 'description' field to store the new contract address or version
+    let upgrade_info: field = proposal.description;
+    
+    // Set an 'upgrade_ready' flag in a mapping
+    Mapping::set(contract_upgrades, 0field, upgrade_info);
+
+
                 } else if proposal.proposal_type == 3u8 {
-                    apply_slashing(proposal_id);
+                    //apply_slashing(proposal_id);
+
+
+    //async function apply_slashing(slash_id: field)  {
+        let slash_proposal: SlashingProposal = Mapping::get(slashing_proposals, proposal_id);
+        let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, (slash_proposal.target, slash_proposal.category));
+
+        // Apply reputation decay before slashing
+        let time_elapsed: u32 = block.height - rep.last_update_time;
+        rep.reputation_score = calculate_reputation_decay(rep.reputation_score, time_elapsed);
+
+        // Apply slashing
+        rep.reputation_score -= slash_proposal.amount as u64;
+        rep.last_update_time = block.height;
+
+        Mapping::set(delegatee_reputations, (slash_proposal.target, slash_proposal.category), rep);
+
+        // Remove the slashing proposal
+        Mapping::remove(slashing_proposals, proposal_id);
+
+
+
                 }
 
                 // Mark proposal as executed
