@@ -184,7 +184,7 @@ program privadao_proposal_management_v1.aleo {
     mapping user_reputation: address => Reputation;
     mapping vote_counts: field => u64;
     mapping vote_aggregates: field => VoteAggregate;
-    mapping delegatee_reputations: field => DelegateeReputation;
+    mapping delegatee_reputations: address => DelegateeReputation;
     mapping contract_upgrade: field => field;
 
 
@@ -256,7 +256,7 @@ program privadao_proposal_management_v1.aleo {
         security_level: u8,
         min_participation: u64
     ){
-        let creator_rep: DelegateeReputation = Mapping::get_or_use(delegatee_reputations, (creator, category), DelegateeReputation {
+        let creator_rep: DelegateeReputation = Mapping::get_or_use(delegatee_reputations, creator, DelegateeReputation {
             delegatee_address: creator,
             category: category,
             reputation_score: 0u64,
@@ -404,8 +404,36 @@ parent_proposal =  Proposal {
         };
 
         Mapping::set(proposal_sponsorships, proposal_id, sponsorship);
-        proposal.total_sponsorship =  proposal.total_sponsorship  + amount;
-        Mapping::set(proposals, proposal_id, proposal);
+        
+        //proposal.total_sponsorship =  proposal.total_sponsorship  + amount;
+        
+ let proposal_sp_add:Proposal =  Proposal {
+        id: proposal.id,
+        creator: proposal.creator,
+        description: proposal.description,
+        proposal_type: proposal.proposal_type,
+        vote_type: proposal.vote_type,
+        options_count: proposal.options_count,
+        treasury_action: proposal.treasury_action,
+        status: proposal.status,
+        discussion_end_time: proposal.discussion_end_time,
+        voting_end_time: proposal.voting_end_time,
+        grace_period_end_time: proposal.grace_period_end_time,
+        required_sponsorship: proposal.required_sponsorship,
+        total_sponsorship: proposal.total_sponsorship + amount,
+        veto_count: proposal.veto_count,
+        veto_threshold: proposal.veto_threshold,
+        amendment_count: proposal.amendment_count,
+        parent_proposal: proposal.parent_proposal,
+        tags: proposal.tags,
+        category: proposal.category,
+        min_participation: proposal.min_participation,
+        security_level: proposal.security_level,
+    };
+
+
+
+        Mapping::set(proposals, proposal_id, proposal_sp_add);
 
         // Update reputation of sponsor
         let  reputation: Reputation = Mapping::get_or_use(user_reputation, caller, Reputation { score: 0i64, proposal_count: 0u32, vote_count: 0u32, successful_proposals: 0u32 });
@@ -426,20 +454,79 @@ parent_proposal =  Proposal {
         let  proposal: Proposal = Mapping::get(proposals, proposal_id);
         assert(proposal.status < 3u8); // Can veto before execution
 
-        let has_vetoed: bool = Mapping::get_or_use(user_vetos, (proposal_id, token.owner), false);
+        let has_vetoed: bool = Mapping::get_or_use(user_vetos, Hash(proposal_id, token.owner), false);
         assert(!has_vetoed); // User hasn't already vetoed
 
 let key: field = BHP256::hash_to_field((proposal_id, token.owner));
 Mapping::set(user_vetos, key, true);
 
 
-        proposal.veto_count += calculate_voting_power(token);
-        Mapping::set(proposals, proposal_id, proposal);
+        //proposal.veto_count += calculate_voting_power(token);
+
+
+ let proposal_new:Proposal =  Proposal {
+        id: proposal.id,
+        creator:  proposal.creator,
+        description:  proposal.description,
+        proposal_type:  proposal.proposal_type,
+        vote_type:  proposal.vote_type,
+        options_count:  proposal.options_count,
+        treasury_action:  proposal.treasury_action,
+        status:  proposal.status,
+        discussion_end_time:  proposal.discussion_end_time,
+        voting_end_time:  proposal.voting_end_time,
+        grace_period_end_time:  proposal.grace_period_end_time,
+        required_sponsorship:  proposal.required_sponsorship,
+        total_sponsorship:  proposal.total_sponsorship,
+        veto_count:  proposal.veto_count + calculate_voting_power(token.amount,token.locked_until),
+        veto_threshold:  proposal.veto_threshold,
+        amendment_count:  proposal.amendment_count,
+        parent_proposal:  proposal.parent_proposal,
+        tags:  proposal.tags,
+        category:  proposal.category,
+        min_participation:  proposal.min_participation,
+        security_level: proposal.security_level,
+    };
+
+
+
+
+
+
+        Mapping::set(proposals, proposal_id, proposal_new);
         //Mapping::set(user_vetos, (proposal_id, token.owner), true);
 
         if proposal.veto_count >= proposal.veto_threshold {
-            proposal.status = 4u8; // Mark as expired/canceled
-            Mapping::set(proposals, proposal_id, proposal);
+            //proposal.status = 4u8; // Mark as expired/canceled
+
+
+ let proposal_expired:Proposal =  Proposal {
+        id: proposal.id,
+        creator:  proposal.creator,
+        description:  proposal.description,
+        proposal_type:  proposal.proposal_type,
+        vote_type:  proposal.vote_type,
+        options_count:  proposal.options_count,
+        treasury_action:  proposal.treasury_action,
+        status:  4u8,
+        discussion_end_time:  proposal.discussion_end_time,
+        voting_end_time:  proposal.voting_end_time,
+        grace_period_end_time:  proposal.grace_period_end_time,
+        required_sponsorship:  proposal.required_sponsorship,
+        total_sponsorship:  proposal.total_sponsorship,
+        veto_count:  proposal.veto_count + calculate_voting_power(token.amount,token.locked_until),
+        veto_threshold:  proposal.veto_threshold,
+        amendment_count:  proposal.amendment_count,
+        parent_proposal:  proposal.parent_proposal,
+        tags:  proposal.tags,
+        category:  proposal.category,
+        min_participation:  proposal.min_participation,
+        security_level: proposal.security_level,
+    };
+
+
+
+            Mapping::set(proposals, proposal_id, proposal_expired);
         }
 
        // return true;
@@ -478,7 +565,7 @@ Mapping::set(user_vetos, key, true);
                 // For critical proposals, initiate multi-sig process
                // initiate_multisig_execution(proposal_id);
 
-    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    //let proposal: Proposal = Mapping::get(proposals, proposal_id);
     
     let multisig_proposal: MultiSigProposal = MultiSigProposal {
         proposal_id: proposal_id,
@@ -521,7 +608,7 @@ Mapping::set(user_vetos, key, true);
                 } else if proposal.proposal_type == 1u8 {
                     //execute_parameter_change(proposal_id);
 
-    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    //let proposal: Proposal = Mapping::get(proposals, proposal_id);
     let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
         quorum_threshold: 100_000_000_000u64,
         voting_period: 604_800u32, // 1 week
@@ -545,7 +632,7 @@ Mapping::set(user_vetos, key, true);
     // In Leo, we can't directly upgrade contracts.
     // Instead, we can set a flag indicating that an upgrade is ready,
     // and the actual upgrade would be performed off-chain.
-    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+//    let proposal: Proposal = Mapping::get(proposals, proposal_id);
     
     // Assuming we use the 'description' field to store the new contract address or version
     let upgrade_info: field = proposal.description;
@@ -560,19 +647,30 @@ Mapping::set(user_vetos, key, true);
 
     //async function apply_slashing(slash_id: field)  {
         let slash_proposal: SlashingProposal = Mapping::get(slashing_proposals, proposal_id);
-        let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, (slash_proposal.target, slash_proposal.category));
+        let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, slash_proposal.target);
 
         // Apply reputation decay before slashing
         let time_elapsed: u32 = block.height - rep.last_update_time;
+
+   let rep_new:DelegateeReputation = DelegateeReputation {
+                delegatee_address: rep.delegatee_address,
+                category: rep.category,
+                reputation_score: calculate_reputation_decay(rep.reputation_score, time_elapsed) - slash_proposal.amount as u64,
+                proposals_supported: rep.proposals_supported,
+                proposals_succeeded: rep.proposals_succeeded,
+                last_update_time: block.height,
+            };
+/*
+
         rep.reputation_score = calculate_reputation_decay(rep.reputation_score, time_elapsed);
 
         // Apply slashing
         rep.reputation_score -= slash_proposal.amount as u64;
         rep.last_update_time = block.height;
 
+*/
 
-
-        Mapping::set(delegatee_reputations, (slash_proposal.target, slash_proposal.category), rep);
+        Mapping::set(delegatee_reputations, slash_proposal.target, rep_new);
 
         // Remove the slashing proposal
         Mapping::remove(slashing_proposals, proposal_id);
@@ -587,13 +685,23 @@ Mapping::set(user_vetos, key, true);
 
                 // Update reputation of proposal creator
                 let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
-                creator_reputation.score += 100i64;
-                creator_reputation.successful_proposals += 1u32;
+
+
+    let creator_reputation_new:Reputation = Reputation {
+        score: creator_reputation.score + 100i64,
+        proposal_count: creator_reputation.proposal_count,
+        vote_count: creator_reputation.vote_count,
+        successful_proposals: creator_reputation.successful_proposals + 1u32,
+    };
+
+             //   creator_reputation.score += 100i64;
+                //creator_reputation.successful_proposals += 1u32;
                 Mapping::set(user_reputation, proposal.creator, creator_reputation);
 
 
 
                 // Update delegatee reputations
+                /*
                 for vote_id: field in vote_aggregate.votes[0u8]..vote_aggregate.votes[10u8] {
                     let vote: Vote = Mapping::get(votes, vote_id);
                     let delegation: Delegation = Mapping::get_or_use(category_delegations, (vote.voter, proposal.category), 
@@ -602,18 +710,35 @@ Mapping::set(user_vetos, key, true);
 
                     if delegation.delegatee != vote.voter {
                         let  delegatee_rep: DelegateeReputation = Mapping::get(delegatee_reputations, (delegation.delegatee, proposal.category));
-                        
+//                        let  delegatee_rep: DelegateeReputation = Mapping::get(delegatee_reputations, (delegation.delegatee:address, proposal.category:field));
+
                         // Apply reputation decay
                         let time_elapsed: u32 = block.height - delegatee_rep.last_update_time;
-                        delegatee_rep.reputation_score = calculate_reputation_decay(delegatee_rep.reputation_score, time_elapsed);
+
+let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
+                delegatee_address: delegatee_rep.delegatee_address,
+                category: delegatee_rep.category,
+                reputation_score: calculate_reputation_decay(delegatee_rep.reputation_score, time_elapsed) + 10u64,
+                proposals_supported: delegatee_rep.proposals_supported,
+                proposals_succeeded: delegatee_rep.proposals_succeeded,
+                last_update_time: block.height,
+            };
+
+
+
+
+                       //delegatee_rep.reputation_score = calculate_reputation_decay(delegatee_rep.reputation_score, time_elapsed);
                         
-                        delegatee_rep.proposals_succeeded += 1u32;
-                        delegatee_rep.reputation_score += 10u64; // Arbitrary increase, can be adjusted
-                        delegatee_rep.last_update_time = block.height;
+                        //delegatee_rep.proposals_succeeded += 1u32;
+                        //delegatee_rep.reputation_score += 10u64; // Arbitrary increase, can be adjusted
+                        //delegatee_rep.last_update_time = block.height;
                         
-                        Mapping::set(delegatee_reputations, (delegation.delegatee, proposal.category), delegatee_rep);
+                        Mapping::set(delegatee_reputations, (delegation.delegatee, proposal.category), delegatee_rep_new);
                     }
                 }
+
+
+                */
             }
 
             //return true;
@@ -735,11 +860,83 @@ Mapping::set(user_vetos, key, true);
         let  proposal: Proposal = Mapping::get(proposals, proposal_id);
         
         if proposal.status == 0u8 && block.height >= proposal.discussion_end_time {
-            proposal.status = 1u8; // Move to voting phase
+           // proposal.status = 1u8; // Move to voting phase
+
+   let proposal_new:Proposal = Proposal {
+            id: proposal.id,
+            creator: proposal.creator,
+            description: proposal.description,
+            proposal_type: proposal.proposal_type,
+            vote_type: proposal.vote_type,
+            options_count: proposal.options_count,
+            treasury_action: proposal.treasury_action,
+            status: 1u8,
+            discussion_end_time: proposal.discussion_end_time,
+            voting_end_time: proposal.voting_end_time,
+            grace_period_end_time: proposal.grace_period_end_time,
+            required_sponsorship: proposal.required_sponsorship,
+            total_sponsorship: proposal.total_sponsorship,
+            veto_count: proposal.veto_count,
+            veto_threshold: proposal.veto_threshold,
+            amendment_count: proposal.amendment_count,
+            parent_proposal: proposal.parent_proposal,
+            tags: proposal.tags,
+            category: proposal.category,
+            min_participation: proposal.min_participation,
+            security_level: proposal.security_level,
+        };
+
+
         } else if proposal.status == 1u8 && block.height >= proposal.voting_end_time {
-            proposal.status = 2u8; // Move to grace period
+           // proposal.status = 2u8; // Move to grace period
+              let proposal_new:Proposal = Proposal {
+            id: proposal.id,
+            creator: proposal.creator,
+            description: proposal.description,
+            proposal_type: proposal.proposal_type,
+            vote_type: proposal.vote_type,
+            options_count: proposal.options_count,
+            treasury_action: proposal.treasury_action,
+            status: 2u8,
+            discussion_end_time: proposal.discussion_end_time,
+            voting_end_time: proposal.voting_end_time,
+            grace_period_end_time: proposal.grace_period_end_time,
+            required_sponsorship: proposal.required_sponsorship,
+            total_sponsorship: proposal.total_sponsorship,
+            veto_count: proposal.veto_count,
+            veto_threshold: proposal.veto_threshold,
+            amendment_count: proposal.amendment_count,
+            parent_proposal: proposal.parent_proposal,
+            tags: proposal.tags,
+            category: proposal.category,
+            min_participation: proposal.min_participation,
+            security_level: proposal.security_level,
+        };
         } else if proposal.status == 2u8 && block.height >= proposal.grace_period_end_time {
-            proposal.status = 3u8; // Move to executed status
+            //proposal.status = 3u8; // Move to executed status
+              let proposal_new:Proposal = Proposal {
+            id: proposal.id,
+            creator: proposal.creator,
+            description: proposal.description,
+            proposal_type: proposal.proposal_type,
+            vote_type: proposal.vote_type,
+            options_count: proposal.options_count,
+            treasury_action: proposal.treasury_action,
+            status: 3u8,
+            discussion_end_time: proposal.discussion_end_time,
+            voting_end_time: proposal.voting_end_time,
+            grace_period_end_time: proposal.grace_period_end_time,
+            required_sponsorship: proposal.required_sponsorship,
+            total_sponsorship: proposal.total_sponsorship,
+            veto_count: proposal.veto_count,
+            veto_threshold: proposal.veto_threshold,
+            amendment_count: proposal.amendment_count,
+            parent_proposal: proposal.parent_proposal,
+            tags: proposal.tags,
+            category: proposal.category,
+            min_participation: proposal.min_participation,
+            security_level: proposal.security_level,
+        };
           //  execute_proposal(proposal_id);
 
 
@@ -766,7 +963,7 @@ Mapping::set(user_vetos, key, true);
                 // For critical proposals, initiate multi-sig process
                // initiate_multisig_execution(proposal_id);
 
-    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    //let proposal: Proposal = Mapping::get(proposals, proposal_id);
     
     let multisig_proposal: MultiSigProposal = MultiSigProposal {
         proposal_id: proposal_id,
@@ -809,7 +1006,7 @@ Mapping::set(user_vetos, key, true);
                 } else if proposal.proposal_type == 1u8 {
                     //execute_parameter_change(proposal_id);
 
-    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    //let proposal: Proposal = Mapping::get(proposals, proposal_id);
     let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
         quorum_threshold: 100_000_000_000u64,
         voting_period: 604_800u32, // 1 week
@@ -833,7 +1030,7 @@ Mapping::set(user_vetos, key, true);
     // In Leo, we can't directly upgrade contracts.
     // Instead, we can set a flag indicating that an upgrade is ready,
     // and the actual upgrade would be performed off-chain.
-    let proposal: Proposal = Mapping::get(proposals, proposal_id);
+    //let proposal: Proposal = Mapping::get(proposals, proposal_id);
     
     // Assuming we use the 'description' field to store the new contract address or version
     let upgrade_info: field = proposal.description;
@@ -848,17 +1045,29 @@ Mapping::set(user_vetos, key, true);
 
     //async function apply_slashing(slash_id: field)  {
         let slash_proposal: SlashingProposal = Mapping::get(slashing_proposals, proposal_id);
-        let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, (slash_proposal.target, slash_proposal.category));
+        let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, slash_proposal.target);
 
         // Apply reputation decay before slashing
         let time_elapsed: u32 = block.height - rep.last_update_time;
+
+
+let rep_new:DelegateeReputation = DelegateeReputation {
+                delegatee_address: rep.delegatee_address,
+                category: rep.category,
+                reputation_score: calculate_reputation_decay(rep.reputation_score, time_elapsed) - slash_proposal.amount as u64,
+                proposals_supported: rep.proposals_supported,
+                proposals_succeeded: rep.proposals_succeeded,
+                last_update_time: block.height,
+            };
+
+/*
         rep.reputation_score = calculate_reputation_decay(rep.reputation_score, time_elapsed);
 
         // Apply slashing
         rep.reputation_score -= slash_proposal.amount as u64;
         rep.last_update_time = block.height;
-
-        Mapping::set(delegatee_reputations, (slash_proposal.target, slash_proposal.category), rep);
+*/
+        Mapping::set(delegatee_reputations, slash_proposal.target, rep_new);
 
         // Remove the slashing proposal
         Mapping::remove(slashing_proposals, proposal_id);
@@ -910,7 +1119,7 @@ Mapping::set(user_vetos, key, true);
                     );
 
                     if delegation.delegatee != vote.voter {
-                        let  delegatee_rep: DelegateeReputation = Mapping::get(delegatee_reputations, (delegation.delegatee, proposal.category));
+                        let  delegatee_rep: DelegateeReputation = Mapping::get(delegatee_reputations, delegation.delegatee);
                         
                         // Apply reputation decay
                         let time_elapsed: u32 = block.height - delegatee_rep.last_update_time;
@@ -920,7 +1129,7 @@ Mapping::set(user_vetos, key, true);
                         //delegatee_rep.reputation_score += 10u64; // Arbitrary increase, can be adjusted
                         //delegatee_rep.last_update_time = block.height;
                         
-                        Mapping::set(delegatee_reputations, (delegation.delegatee, proposal.category),      DelegateeReputation {
+                        Mapping::set(delegatee_reputations, delegation.delegatee,      DelegateeReputation {
                 delegatee_address: delegatee_rep.delegatee_address,
                 category: delegatee_rep.category,
                 reputation_score: calculate_reputation_decay(delegatee_rep.reputation_score, time_elapsed) + 10u64,
@@ -936,7 +1145,7 @@ Mapping::set(user_vetos, key, true);
         }
 
         // If the proposal didn't pass, mark it as expired
-proposal = Proposal {
+let proposal_expired:Proposal = Proposal {
             id: proposal.id,
             creator: proposal.creator,
             description: proposal.description,
@@ -959,12 +1168,22 @@ proposal = Proposal {
             min_participation: proposal.min_participation,
             security_level: proposal.security_level,
         };
-        Mapping::set(proposals, proposal_id, proposal);
+        Mapping::set(proposals, proposal_id, proposal_expired);
 
         // Update reputation of proposal creator for failed proposal
-        let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
-        creator_reputation.score -= 50i64;
-        Mapping::set(user_reputation, proposal.creator, creator_reputation);
+        let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal_expired.creator);
+        //creator_reputation.score -= 50i64;
+
+creator_reputation = Reputation {
+        score: creator_reputation.score - 50i64,
+        proposal_count: creator_reputation.proposal_count,
+        vote_count: creator_reputation.vote_count,
+        successful_proposals: creator_reputation.successful_proposals,
+    };
+
+
+
+        Mapping::set(user_reputation, proposal_expired.creator, creator_reputation);
 
         //return false;
     //}
@@ -1183,7 +1402,7 @@ async function execute_parameter_change(proposal_id: field) {
     Mapping::set(dao_parameters, 0field, new_params);
 }
 
-*/
+
 
 async inline execute_contract_upgrade(proposal_id: field) {
     // In Leo, we can't directly upgrade contracts.
@@ -1197,7 +1416,7 @@ async inline execute_contract_upgrade(proposal_id: field) {
     // Set an 'upgrade_ready' flag in a mapping
     Mapping::set(contract_upgrades, 0field, upgrade_info);
 }
-
+*/
 async function initiate_multisig_execution(proposal_id: field) {
     let proposal: Proposal = Mapping::get(proposals, proposal_id);
     
@@ -1234,7 +1453,7 @@ function isqrt(x: u64) -> u64 {
     return result;
 }
 
-transition calculate_voting_power(token_amount: u64, token_lock_duration: u64) -> u64 {
+inline calculate_voting_power(token_amount: u64, token_lock_duration: u64) -> u64 {
     // Calculate the square root using our integer square root function
     let base_power: u64 = isqrt(token_amount);
     
