@@ -1279,7 +1279,8 @@ let rep_new:DelegateeReputation = DelegateeReputation {
 
 
 
-                // Update delegatee reputations
+                // TODO: Update delegatee reputations
+                /*
                 for vote_id: u64 in vote_aggregate.vote_tally[0u8]..vote_aggregate.vote_tally[10u8] {
                     let vote: Vote = Mapping::get(votes, BHP256::hash_to_field(vote_id));
                     let delegation: Delegation = Mapping::get_or_use(category_delegations, BHP256::hash_to_field(DelegationKey{delegator:vote.voter,category:proposal.category}), 
@@ -1303,6 +1304,8 @@ let rep_new:DelegateeReputation = DelegateeReputation {
             });
                     }
                 }
+*/
+
             }
 
             //return true;
@@ -1594,21 +1597,22 @@ async function initiate_multisig_execution(proposal_id: field) {
     Mapping::set(multisig_proposals, proposal_id, multisig_proposal);
 }
 
+
+// TODO: Why is this not working?
 // Integer square root function for u64 using a for loop
+/*
 function isqrt(x: u64) -> u64 {
     if x == 0u64 {
         return 0u64;
     }
     
     let  result: u64 = 0u64;
-/*
- for i: u8 in 0u8..4u8 {
-        sum += a[i];
-    }
-    */
+
     // We use 32 iterations as the maximum, which is sufficient for u64
     for i:u64 in 0u64..32u64 {
-        let bit: u64 = 1u64 << (31u64 - i);
+        let bitshift:u64 = (31u64 - i);
+        let bit: u64 = 1u64.shl(bitshift);
+
         let temp: u64 = result | bit;
         if temp * temp <= x {
             result = temp;
@@ -1617,10 +1621,10 @@ function isqrt(x: u64) -> u64 {
     
     return result;
 }
-
+*/
 inline calculate_voting_power(token_amount: u64, token_lock_duration: u64) -> u64 {
     // Calculate the square root using our integer square root function
-    let base_power: u64 = isqrt(token_amount);
+    let base_power: u64 = (token_amount);
     
     // Calculate time bonus (unchanged)
     let time_bonus: u64 = 100u64 + (token_lock_duration / 2_592_000u64); // 1% bonus per month locked
@@ -1726,9 +1730,9 @@ function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphert
         }
 
         // Regular voting logic
-        //update_vote_results(proposal_id, vote, voting_power);
      let  results: [u64; 10] = Mapping::get_or_use(vote_results, proposal_id, [0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64]);
-        results[vote] += voting_power;
+        // TODO: Should update voting power
+        //results[vote] += voting_power;
         Mapping::set(vote_results, proposal_id, results);
 
 
@@ -1771,7 +1775,16 @@ function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphert
         let minority_rule: SlashingRule = Mapping::get(slashing_rules, 0u8);
         let  voter_history: VoterHistory = Mapping::get_or_use(voter_histories, voter, VoterHistory { minority_votes: 0u32, total_votes: 0u32 });
         
-        voter_history.total_votes += 1u32;
+        //voter_history.total_votes += 1u32;
+
+
+   let voter_history_new:VoterHistory =  VoterHistory {
+        minority_votes: voter_history.minority_votes,
+        total_votes: voter_history.total_votes+1u32,
+    };
+
+
+
         /*
         if vote != get_majority_vote(proposal_id) {
             voter_history.minority_votes += 1u32;
@@ -1820,15 +1833,20 @@ function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphert
 */
     async function update_vote_results(proposal_id: field, vote: u64, weight: u64) {
         let  results: [u64; 10] = Mapping::get_or_use(vote_results, proposal_id, [0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64]);
-        results[vote as u64] += weight;
+        // TODO: Should update vote weight
+        //results[vote as u64] += weight;
         Mapping::set(vote_results, proposal_id, results);
     }
 
     async function remove_previous_vote(proposal_id: field, previous_vote: VoteVerification) {
         let  results: [u64; 10] = Mapping::get(vote_results, proposal_id);
         let previous_vote_value: u8 = BHP256::hash_to_field(previous_vote.vote_hash) as u8;
-        results[previous_vote_value as u64] -= previous_vote.voter as u64; // Simplified; in reality, you'd need to store and retrieve the actual previous vote weight
-        Mapping::set(vote_results, proposal_id, results);
+        
+        // Simplified; in reality, we'll need to store and retrieve the actual previous vote weight
+        // TODO: need to remove previous vote
+
+        //results[previous_vote_value as u64] -= previous_vote.voter as u64; 
+        //Mapping::set(vote_results, proposal_id, results);
     }
 
     async function cast_conviction_vote(proposal_id: field, amount: u64, token_owner: address) {
