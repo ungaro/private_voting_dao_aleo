@@ -20,7 +20,7 @@ program privadao_proposal_management_v1.aleo {
     record GovernanceToken {
         owner: address,
         amount: u64,
-        locked_until: u32,
+        locked_until: u64,
     }
 
     struct Vote {
@@ -89,6 +89,13 @@ program privadao_proposal_management_v1.aleo {
         amount: u64,
         reputation: u64,
     }
+
+struct DelegationKey{
+            delegator: address,
+        category: field,
+
+}
+
 
     struct DelegationInfo {
         delegatee: address,
@@ -179,13 +186,14 @@ program privadao_proposal_management_v1.aleo {
     mapping proposal_sponsorships: field => Sponsorship;
     mapping delegations: address => DelegationInfo;
     mapping comment_content: field => Comment;
-    mapping proposal_comments: field => Comments;
+    mapping proposal_comments: field => Comment;
     mapping slashing_proposals: field => SlashingProposal;
     mapping user_reputation: address => Reputation;
     mapping vote_counts: field => u64;
     mapping vote_aggregates: field => VoteAggregate;
     mapping delegatee_reputations: address => DelegateeReputation;
     mapping contract_upgrade: field => field;
+    mapping contract_upgrades: field => field;
 
 
 
@@ -386,20 +394,20 @@ parent_proposal =  Proposal {
     }
 
      async transition sponsor_proposal(proposal_id: field, amount: u64, token: GovernanceToken) -> Future {
-        return finalize_sponsor_proposal(self.caller, proposal_id, amount, token);
+        return finalize_sponsor_proposal(self.caller, proposal_id, amount, token.owner);
     }
 
     async function finalize_sponsor_proposal(
         caller: address,
         proposal_id: field,
         amount: u64,
-        token: GovernanceToken
+        token_owner: address
     ) {
         let proposal: Proposal = Mapping::get(proposals, proposal_id);
         assert(proposal.status == 0u8); // Only sponsor during discussion phase
 
         let sponsorship: Sponsorship = Sponsorship {
-            sponsor: token.owner,
+            sponsor: token_owner,
             amount: amount,
         };
 
@@ -443,21 +451,23 @@ parent_proposal =  Proposal {
     }
 
     async transition veto_proposal(proposal_id: field, token: GovernanceToken) -> Future {
-        return finalize_veto_proposal(self.caller, proposal_id, token);
+        return finalize_veto_proposal(self.caller, proposal_id, token.owner,token.amount,token.locked_until);
     }
 
     async function finalize_veto_proposal(
         caller: address,
         proposal_id: field,
-        token: GovernanceToken
+        token_owner: address,
+        token_amount: u64,
+        token_locked_until: u64
     ) {
         let  proposal: Proposal = Mapping::get(proposals, proposal_id);
         assert(proposal.status < 3u8); // Can veto before execution
 
-        let has_vetoed: bool = Mapping::get_or_use(user_vetos, Hash(proposal_id, token.owner), false);
+        let has_vetoed: bool = Mapping::get_or_use(user_vetos, BHP256::hash_to_field((proposal_id,token_owner)), false);
         assert(!has_vetoed); // User hasn't already vetoed
 
-let key: field = BHP256::hash_to_field((proposal_id, token.owner));
+let key: field = BHP256::hash_to_field((proposal_id, token_owner));
 Mapping::set(user_vetos, key, true);
 
 
@@ -478,7 +488,7 @@ Mapping::set(user_vetos, key, true);
         grace_period_end_time:  proposal.grace_period_end_time,
         required_sponsorship:  proposal.required_sponsorship,
         total_sponsorship:  proposal.total_sponsorship,
-        veto_count:  proposal.veto_count + calculate_voting_power(token.amount,token.locked_until),
+        veto_count:  proposal.veto_count + calculate_voting_power(token_amount,token_locked_until),
         veto_threshold:  proposal.veto_threshold,
         amendment_count:  proposal.amendment_count,
         parent_proposal:  proposal.parent_proposal,
@@ -514,7 +524,7 @@ Mapping::set(user_vetos, key, true);
         grace_period_end_time:  proposal.grace_period_end_time,
         required_sponsorship:  proposal.required_sponsorship,
         total_sponsorship:  proposal.total_sponsorship,
-        veto_count:  proposal.veto_count + calculate_voting_power(token.amount,token.locked_until),
+        veto_count:  proposal.veto_count + calculate_voting_power(token_amount,token_locked_until),
         veto_threshold:  proposal.veto_threshold,
         amendment_count:  proposal.amendment_count,
         parent_proposal:  proposal.parent_proposal,
@@ -769,8 +779,43 @@ let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
             timestamp: block.height,
         };
 //TODO
-        let  current_comments: [Comment; 32] = Mapping::get_or_use(proposal_comments, proposal_id, [Comment { author: caller, content: 0field, timestamp: 0u32 }]);
-        
+/*
+        let  current_comments: [Comment; 32] = Mapping::get_or_use(proposal_comments, proposal_id, 
+        [Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 },
+        Comment { author: caller, content: 0field, timestamp: 0u32 }
+        ]);
+        */
+        /*
         // Find the first empty slot and add the new comment
         for i: u8 in 0u8..100u8 {
             if current_comments[i].timestamp == 0u32 {
@@ -778,8 +823,9 @@ let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
                 break;
             }
         }
+*/
 
-        Mapping::set(proposal_comments, proposal_id, current_comments);
+        Mapping::set(proposal_comments, proposal_id, new_comment);
 
     }
 
@@ -801,10 +847,10 @@ let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
     async transition delegate_category(delegatee: address, category: field, amount: u64, token: GovernanceToken) -> Future {
         assert(token.amount >= amount);
 
-        return finalize_delegate_category(self.caller, delegatee, category, amount);
+        return finalize_delegate_category(self.caller, delegatee, category, amount,token.owner);
     }
 
-    async function finalize_delegate_category(caller: address, delegatee: address, category: field, amount: u64)  {
+    async function finalize_delegate_category(caller: address, delegatee: address, category: field, amount: u64,token_owner:address)  {
         let delegatee_rep: DelegateeReputation = Mapping::get_or_use(delegatee_reputations, (delegatee, category), 
             DelegateeReputation {
                 delegatee_address: delegatee,
@@ -817,14 +863,18 @@ let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
         );
 
         let delegation: Delegation = Delegation {
-            delegator: token.owner,
+            delegator: token_owner,
             delegatee: delegatee,
             category: category,
             amount: amount,
             reputation: delegatee_rep.reputation_score,
         };
+         
 
-        Mapping::set(category_delegations, (token.owner, category), delegation);
+        Mapping::set(category_delegations, BHP256::hash_to_field(DelegationKey{delegator:caller,category:category}), delegation);
+
+
+// BHP256::hash_to_field(DelegationKey{delegator:vote.voter,category:proposal.category})
 
         // Lock the tokens (in a real implementation, you'd need to handle token locking)
         // token.amount -= amount;
@@ -1105,16 +1155,27 @@ let rep_new:DelegateeReputation = DelegateeReputation {
 
                 // Update reputation of proposal creator
                 let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
-                creator_reputation.score += 100i64;
-                creator_reputation.successful_proposals += 1u32;
-                Mapping::set(user_reputation, proposal.creator, creator_reputation);
+                //creator_reputation.score += 100i64;
+                //creator_reputation.successful_proposals += 1u32;
+
+    let creator_reputation_new:Reputation= Reputation {
+        score: creator_reputation.score + 100i64,
+        proposal_count: creator_reputation.proposal_count,
+        vote_count: creator_reputation.vote_count,
+        successful_proposals:  creator_reputation.successful_proposals + 1u32,
+    };
+
+
+
+
+                Mapping::set(user_reputation, proposal.creator, creator_reputation_new);
 
 
 
                 // Update delegatee reputations
                 for vote_id: field in vote_aggregate.votes[0u8]..vote_aggregate.votes[10u8] {
                     let vote: Vote = Mapping::get(votes, vote_id);
-                    let delegation: Delegation = Mapping::get_or_use(category_delegations, (vote.voter, proposal.category), 
+                    let delegation: Delegation = Mapping::get_or_use(category_delegations, BHP256::hash_to_field(DelegationKey{delegator:vote.voter,category:proposal.category}), 
                         Delegation { delegator: vote.voter, delegatee: vote.voter, category: proposal.category, amount: 0u64, reputation: 0u64 }
                     );
 
@@ -1197,7 +1258,7 @@ creator_reputation = Reputation {
         } else {
             //proposal.status = 1u8; // Move to voting phase
 
-proposal = Proposal {
+let proposal_voting:Proposal = Proposal {
             id: proposal.id,
             creator: proposal.creator,
             description: proposal.description,
@@ -1488,6 +1549,7 @@ function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphert
     return HomomorphicCiphertext { c1: c1, c2: c2 };
 }
 
+/*
 async function generate_encryption_params() -> EncryptionParams {
     // In a real implementation, the public key would be a predetermined DAO parameter
     // and the random value would be generated securely
@@ -1496,7 +1558,7 @@ async function generate_encryption_params() -> EncryptionParams {
     
     return EncryptionParams { public_key: public_key, random: random };
 }
-
+*/
 
 
 
