@@ -97,6 +97,14 @@ struct DelegationKey{
 }
 
 
+struct VetoKey{
+        proposal_id: field,
+        token_owner: address,
+
+}
+
+
+
     struct DelegationInfo {
         delegatee: address,
         percentage: u8,
@@ -180,7 +188,7 @@ struct DelegationKey{
     mapping governance_tiers: u8 => GovernanceTier;
     mapping proposals: field => Proposal;
     mapping proposal_status: field => ProposalStatus;
-    mapping user_vetos: field => address;
+    mapping user_vetos: field => bool;
     mapping conviction_votes: field => ConvictionVote;
     mapping category_delegations: field => Delegation;
     mapping proposal_sponsorships: field => Sponsorship;
@@ -445,8 +453,17 @@ parent_proposal =  Proposal {
 
         // Update reputation of sponsor
         let  reputation: Reputation = Mapping::get_or_use(user_reputation, caller, Reputation { score: 0i64, proposal_count: 0u32, vote_count: 0u32, successful_proposals: 0u32 });
-        reputation.score += (amount / 100u64) as i64;
-        Mapping::set(user_reputation, caller, reputation);
+        
+        let reputation_sponsor_proposal:Reputation = Reputation { score: reputation.score + (amount / 100u64) as i64, proposal_count: reputation.proposal_count, vote_count: reputation.vote_count, successful_proposals: reputation.successful_proposals };
+
+
+
+        //reputation.score += (amount / 100u64) as i64;
+
+
+
+
+        Mapping::set(user_reputation, caller, reputation_sponsor_proposal);
 
     }
 
@@ -464,10 +481,10 @@ parent_proposal =  Proposal {
         let  proposal: Proposal = Mapping::get(proposals, proposal_id);
         assert(proposal.status < 3u8); // Can veto before execution
 
-        let has_vetoed: bool = Mapping::get_or_use(user_vetos, BHP256::hash_to_field((proposal_id,token_owner)), false);
+        let has_vetoed: bool = Mapping::get_or_use(user_vetos, BHP256::hash_to_field(VetoKey{proposal_id:proposal_id,token_owner:token_owner}), false);
         assert(!has_vetoed); // User hasn't already vetoed
 
-let key: field = BHP256::hash_to_field((proposal_id, token_owner));
+let key: field = BHP256::hash_to_field(VetoKey{proposal_id:proposal_id,token_owner:token_owner});
 Mapping::set(user_vetos, key, true);
 
 
