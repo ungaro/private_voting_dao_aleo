@@ -1,5 +1,8 @@
 # PrivaDAO: A Privacy-Preserving DAO Voting System with zk Proofs
 
+## Proposal Management is finished and deployed. 
+
+### Sorry no video about it and it has many rough edges, but it's working to some degree and deployed.
 
 ✅ Created deployment transaction for 'privadao_proposal_management_v1.aleo'
 
