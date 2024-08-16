@@ -37,6 +37,18 @@ program privadao_proposal_management_v1.aleo {
         vote_merkle_root: field,
     }
 
+    struct VoteVerification {
+        proposal_id: field,
+        voter: address,
+        vote_hash: field,
+        timestamp: u32,
+    }
+
+
+    struct VoterHistory {
+        minority_votes: u32,
+        total_votes: u32,
+    }
 
     // Structs
     struct GovernanceTier {
@@ -103,7 +115,12 @@ struct VetoKey{
 
 }
 
-
+    struct Stake {
+        owner: address,
+        amount: u64,
+        start_time: u32,
+        duration: u32,
+    }
 
     struct DelegationInfo {
         delegatee: address,
@@ -203,6 +220,22 @@ struct VetoKey{
     mapping contract_upgrade: field => field;
     mapping contract_upgrades: field => field;
 
+
+    // Mappings
+    mapping slashing_rules: u8 => SlashingRule;
+    mapping vote_types: field => VoteType;
+    mapping vote_receipts: field => field; // (ballot_id, voter) => vote_hash
+//    mapping votes: field => [Vote; 32]; // ballot_id => Votes (max 32 votes per ballot due to Leo limitations)
+    mapping votes: field => Vote; // ballot_id => Votes (max 32 votes per ballot due to Leo limitations)
+    
+    mapping vote_results: field => [u64; 10]; // ballot_id => Vote counts for each option
+    //mapping vote_aggregates: field => VoteAggregate;
+    mapping vote_merkle_proofs: field => field; // (proposal_id, voter) => merkle_proof
+    mapping vote_verifications: field => VoteVerification;
+    //mapping conviction_votes: field => ConvictionVote;
+    //mapping off_chain_data: field => OffChainData;
+    mapping voter_histories: address => VoterHistory;
+    mapping stakes: address => Stake;
 
 
     // Additional mappings
@@ -705,10 +738,33 @@ Mapping::set(user_vetos, key, true);
 
 
                 }
+let proposal_executed:Proposal =  Proposal {
+        id: proposal.id,
+        creator:  proposal.creator,
+        description:  proposal.description,
+        proposal_type:  proposal.proposal_type,
+        vote_type:  proposal.vote_type,
+        options_count:  proposal.options_count,
+        treasury_action:  proposal.treasury_action,
+        status:  3u8,
+        discussion_end_time:  proposal.discussion_end_time,
+        voting_end_time:  proposal.voting_end_time,
+        grace_period_end_time:  proposal.grace_period_end_time,
+        required_sponsorship:  proposal.required_sponsorship,
+        total_sponsorship:  proposal.total_sponsorship,
+        veto_count:  proposal.veto_count,
+        veto_threshold:  proposal.veto_threshold,
+        amendment_count:  proposal.amendment_count,
+        parent_proposal:  proposal.parent_proposal,
+        tags:  proposal.tags,
+        category:  proposal.category,
+        min_participation:  proposal.min_participation,
+        security_level: proposal.security_level,
+    };
 
                 // Mark proposal as executed
-                proposal.status = 3u8;
-                Mapping::set(proposals, proposal_id, proposal);
+                //proposal.status = 3u8;
+                Mapping::set(proposals, proposal_id, proposal_executed);
 
                 // Update reputation of proposal creator
                 let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
@@ -771,13 +827,47 @@ let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
             //return true;
         }
 
+
+let proposal_expired:Proposal =  Proposal {
+        id: proposal.id,
+        creator:  proposal.creator,
+        description:  proposal.description,
+        proposal_type:  proposal.proposal_type,
+        vote_type:  proposal.vote_type,
+        options_count:  proposal.options_count,
+        treasury_action:  proposal.treasury_action,
+        status:  4u8,
+        discussion_end_time:  proposal.discussion_end_time,
+        voting_end_time:  proposal.voting_end_time,
+        grace_period_end_time:  proposal.grace_period_end_time,
+        required_sponsorship:  proposal.required_sponsorship,
+        total_sponsorship:  proposal.total_sponsorship,
+        veto_count:  proposal.veto_count,
+        veto_threshold:  proposal.veto_threshold,
+        amendment_count:  proposal.amendment_count,
+        parent_proposal:  proposal.parent_proposal,
+        tags:  proposal.tags,
+        category:  proposal.category,
+        min_participation:  proposal.min_participation,
+        security_level: proposal.security_level,
+    };
+
         // If the proposal didn't pass, mark it as expired
-        proposal.status = 4u8;
-        Mapping::set(proposals, proposal_id, proposal);
+        //proposal.status = 4u8;
+        Mapping::set(proposals, proposal_id, proposal_expired);
 
         // Update reputation of proposal creator for failed proposal
         let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
-        creator_reputation.score -= 50i64;
+        //creator_reputation.score -= 50i64;
+
+    let creator_reputation_new:Reputation = Reputation {
+        score: creator_reputation.score - 50i64,
+        proposal_count: creator_reputation.proposal_count,
+        vote_count: creator_reputation.vote_count,
+        successful_proposals: creator_reputation.successful_proposals,
+    };
+
+
         Mapping::set(user_reputation, proposal.creator, creator_reputation);
 
         //return false;
@@ -868,7 +958,7 @@ let delegatee_rep_new:DelegateeReputation = DelegateeReputation {
     }
 
     async function finalize_delegate_category(caller: address, delegatee: address, category: field, amount: u64,token_owner:address)  {
-        let delegatee_rep: DelegateeReputation = Mapping::get_or_use(delegatee_reputations, (delegatee, category), 
+        let delegatee_rep: DelegateeReputation = Mapping::get_or_use(delegatee_reputations, delegatee, 
             DelegateeReputation {
                 delegatee_address: delegatee,
                 category: category,
@@ -1145,7 +1235,7 @@ let rep_new:DelegateeReputation = DelegateeReputation {
 
                 // Mark proposal as executed
                 //proposal.status = 3u8;
-                let proposal_new:Proposal = Proposal {
+                let proposal_executed:Proposal = Proposal {
             id: proposal.id,
             creator: proposal.creator,
             description: proposal.description,
@@ -1168,7 +1258,7 @@ let rep_new:DelegateeReputation = DelegateeReputation {
             min_participation: proposal.min_participation,
             security_level: proposal.security_level,
         };
-                Mapping::set(proposals, proposal_id, proposal_new);
+                Mapping::set(proposals, proposal_id, proposal_executed);
 
                 // Update reputation of proposal creator
                 let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
@@ -1190,8 +1280,8 @@ let rep_new:DelegateeReputation = DelegateeReputation {
 
 
                 // Update delegatee reputations
-                for vote_id: field in vote_aggregate.votes[0u8]..vote_aggregate.votes[10u8] {
-                    let vote: Vote = Mapping::get(votes, vote_id);
+                for vote_id: u64 in vote_aggregate.vote_tally[0u8]..vote_aggregate.vote_tally[10u8] {
+                    let vote: Vote = Mapping::get(votes, BHP256::hash_to_field(vote_id));
                     let delegation: Delegation = Mapping::get_or_use(category_delegations, BHP256::hash_to_field(DelegationKey{delegator:vote.voter,category:proposal.category}), 
                         Delegation { delegator: vote.voter, delegatee: vote.voter, category: proposal.category, amount: 0u64, reputation: 0u64 }
                     );
@@ -1201,11 +1291,7 @@ let rep_new:DelegateeReputation = DelegateeReputation {
                         
                         // Apply reputation decay
                         let time_elapsed: u32 = block.height - delegatee_rep.last_update_time;
-                        //delegatee_rep.reputation_score = calculate_reputation_decay(delegatee_rep.reputation_score, time_elapsed);
-                        
-                        //delegatee_rep.proposals_succeeded += 1u32;
-                        //delegatee_rep.reputation_score += 10u64; // Arbitrary increase, can be adjusted
-                        //delegatee_rep.last_update_time = block.height;
+
                         
                         Mapping::set(delegatee_reputations, delegation.delegatee,      DelegateeReputation {
                 delegatee_address: delegatee_rep.delegatee_address,
@@ -1366,7 +1452,7 @@ let proposal_voting:Proposal = Proposal {
         let lock_until: u32 = Mapping::get_or_use(token_locks, addr, 0u32);
         return lock_until > block.height;
     }
-*/
+
     inline determine_winning_option(vote_type: VoteType, results: [u64; 10]) -> u8 {
         if vote_type.single_choice || vote_type.multiple_choice {
             // Find the option with the most votes
@@ -1415,6 +1501,7 @@ let proposal_voting:Proposal = Proposal {
         }
         return 0u8;
     }
+    */
 // Additional structs and mappings needed for these functions
 struct TreasuryBalance {
     asset: field,
@@ -1566,6 +1653,252 @@ function encrypt_vote(vote: u64, params: EncryptionParams) -> HomomorphicCiphert
     return HomomorphicCiphertext { c1: c1, c2: c2 };
 }
 
+
+   // Main voting transition
+    async transition cast_vote(proposal_id: field, vote: u64, token: GovernanceToken) -> Future {
+        //return proposal_id then finalize(self.caller, proposal_id, vote, token);
+        return finalize_cast_vote(self.caller, proposal_id, vote, token.amount, token.locked_until);
+
+    }
+
+    async function finalize_cast_vote(voter: address, proposal_id: field, vote: u64, token_amount: u64, token_locked_until: u64) {
+        let proposal: Proposal = Mapping::get(proposals, proposal_id);
+        
+        // Ensure proposal is in voting phase and not vetoed
+        assert(proposal.status == 1u8);
+        assert(proposal.veto_count < proposal.veto_threshold);
+        assert(block.height >= proposal.discussion_end_time && block.height < proposal.voting_end_time);
+
+        // Check for previous vote and remove if exists
+        let previous_vote: VoteVerification = Mapping::get_or_use(vote_verifications, proposal_id, 
+            VoteVerification {
+                proposal_id: 0field,
+                voter: ZERO_ADDRESS,
+                vote_hash: 0field,
+                timestamp: 0u32,
+            }
+        );
+        if previous_vote.timestamp != 0u32 {
+            // Remove previous vote from tally
+
+        let  results: [u64; 10] = Mapping::get(vote_results, proposal_id);
+        let previous_vote_value: u8 = BHP256::hash_to_field(previous_vote.vote_hash) as u8;
+        //results[previous_vote_value as u64] -= previous_vote.voter as u64; // Simplified; in reality, you'd need to store and retrieve the actual previous vote weight
+        Mapping::set(vote_results, proposal_id, results);
+    
+
+
+        }
+
+        // Calculate voting power
+        let voting_power: u64 = calculate_voting_power(token_amount, token_locked_until);
+
+        // Apply staking bonus
+        let stake: Stake = Mapping::get_or_use(stakes, voter, Stake { owner: voter, amount: 0u64, start_time: 0u32, duration: 0u32 });
+        let staking_bonus: u64 = calculate_staking_bonus(stake, block.height);
+        voting_power = voting_power + staking_bonus;
+
+        // Check for category-specific delegation
+        let delegation: Delegation = Mapping::get_or_use(category_delegations, BHP256::hash_to_field(voter), 
+            Delegation { delegator: voter, delegatee: voter, category: proposal.category, amount: 0u64, reputation: 0u64 }
+        );
+        
+        if delegation.delegatee != voter {
+           // voting_power = delegation.amount;
+        }
+
+        let vote_type: VoteType = Mapping::get(vote_types, proposal_id);
+        if vote_type.conviction {
+            //cast_conviction_vote(proposal_id, voting_power, voter);
+
+        let conviction_vote: ConvictionVote = ConvictionVote {
+            voter: voter,
+            proposal_id: proposal_id,
+            amount: voting_power,
+            start_time: block.height,
+        };
+        Mapping::set(conviction_votes, proposal_id, conviction_vote);
+
+
+        } else if vote_type.quadratic {
+            //TODO:cannot reassign voting_power?
+           // voting_power = calculate_quadratic_voting_power(voting_power);
+        }
+
+        // Regular voting logic
+        //update_vote_results(proposal_id, vote, voting_power);
+     let  results: [u64; 10] = Mapping::get_or_use(vote_results, proposal_id, [0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64]);
+        results[vote] += voting_power;
+        Mapping::set(vote_results, proposal_id, results);
+
+
+
+        // Create vote verification
+        let vote_hash: field = BHP256::hash_to_field((voter as field) + proposal_id + (vote as field));
+        let vote_verification: VoteVerification = VoteVerification {
+            proposal_id: proposal_id,
+            voter: voter,
+            vote_hash: vote_hash,
+            timestamp: block.height,
+        };
+        Mapping::set(vote_verifications, proposal_id, vote_verification);
+
+        // Update user reputation for voting
+        //update_reputation(voter, proposal.category, 1i64);
+
+        // Update delegatee reputation
+        if delegation.delegatee != voter {
+            let  delegatee_rep: DelegateeReputation = Mapping::get(delegatee_reputations, delegation.delegatee);
+            
+            
+    let  delegatee_rep_new:DelegateeReputation= DelegateeReputation {
+        delegatee_address: delegatee_rep.delegatee_address,
+        category: delegatee_rep.category,
+        reputation_score: delegatee_rep.reputation_score,
+        proposals_supported: delegatee_rep.proposals_supported + 1u32,
+        proposals_succeeded: delegatee_rep.proposals_succeeded,
+        last_update_time: delegatee_rep.last_update_time,
+    };
+
+            //delegatee_rep.proposals_supported += 1u32;
+
+
+            Mapping::set(delegatee_reputations, delegation.delegatee, delegatee_rep_new);
+        }
+
+        // Check for automatic slashing conditions
+        // check_and_apply_slashing(voter, proposal_id, vote);
+        let minority_rule: SlashingRule = Mapping::get(slashing_rules, 0u8);
+        let  voter_history: VoterHistory = Mapping::get_or_use(voter_histories, voter, VoterHistory { minority_votes: 0u32, total_votes: 0u32 });
+        
+        voter_history.total_votes += 1u32;
+        /*
+        if vote != get_majority_vote(proposal_id) {
+            voter_history.minority_votes += 1u32;
+        }
+*/
+
+// TODO: UPDATE REPUTATION
+/*
+        if voter_history.total_votes >= minority_rule.threshold && 
+           (voter_history.minority_votes * 100u32) / voter_history.total_votes > 75u32 {
+            update_reputation(voter, get_proposal_category(proposal_id), -minority_rule.slash_amount);
+        }
+*/
+        Mapping::set(voter_histories, voter, voter_history);
+
+
+    }
+
+/*
+    // Helper functions
+    function calculate_voting_power(token: GovernanceToken, category: field) -> u64 {
+        let base_power: u64 = token.amount;
+        let lock_up_bonus: u64 = (token.locked_until - block.height) / 100u32; // Bonus for every 100 blocks of lock-up
+        let category_boost: u64 = get_category_boost(token.owner, category);
+        return base_power + (base_power * lock_up_bonus) / 100u64 + category_boost; // Max 100% bonus + category boost
+    }
+*/
+    inline calculate_quadratic_voting_power(amount: u64) -> u64 {
+        return (amount as u128).square_root() as u64;
+    }
+
+    inline calculate_staking_bonus(stake: Stake, current_height: u32) -> u64 {
+        if stake.amount == 0u64 {
+            return 0u64;
+        }
+        let staking_duration: u32 = current_height - stake.start_time;
+        return (stake.amount * staking_duration as u64) / 10000u64; // 0.01% bonus per block staked
+    }
+
+/*
+    function calculate_conviction(voting_power: u64, time_elapsed: u32) -> u64 {
+        let max_conviction: u64 = voting_power * 10u64; // Maximum conviction is 10x voting power
+        let growth: u64 = (CONVICTION_GROWTH_RATE * time_elapsed as u64) / (7u64 * 24u64 * 60u64 * 60u64); // Growth over time
+        return (max_conviction * growth) / 1000u64; // Scaled conviction
+    }
+*/
+    async function update_vote_results(proposal_id: field, vote: u64, weight: u64) {
+        let  results: [u64; 10] = Mapping::get_or_use(vote_results, proposal_id, [0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64,0u64]);
+        results[vote as u64] += weight;
+        Mapping::set(vote_results, proposal_id, results);
+    }
+
+    async function remove_previous_vote(proposal_id: field, previous_vote: VoteVerification) {
+        let  results: [u64; 10] = Mapping::get(vote_results, proposal_id);
+        let previous_vote_value: u8 = BHP256::hash_to_field(previous_vote.vote_hash) as u8;
+        results[previous_vote_value as u64] -= previous_vote.voter as u64; // Simplified; in reality, you'd need to store and retrieve the actual previous vote weight
+        Mapping::set(vote_results, proposal_id, results);
+    }
+
+    async function cast_conviction_vote(proposal_id: field, amount: u64, token_owner: address) {
+        let conviction_vote: ConvictionVote = ConvictionVote {
+            voter: token_owner,
+            proposal_id: proposal_id,
+            amount: amount,
+            start_time: block.height,
+        };
+        Mapping::set(conviction_votes, proposal_id, conviction_vote);
+    }
+
+    async function check_and_apply_slashing(voter: address, proposal_id: field, vote: u64) {
+        let minority_rule: SlashingRule = Mapping::get(slashing_rules, 0u8);
+        let  voter_history: VoterHistory = Mapping::get_or_use(voter_histories, voter, VoterHistory { minority_votes: 0u32, total_votes: 0u32 });
+        let vote_history_new:VoterHistory =  VoterHistory {
+        minority_votes: voter_history.minority_votes,
+        total_votes: voter_history.total_votes+1u32,
+    };
+
+
+
+        //voter_history.total_votes += 1u32;
+        /*
+        if vote != get_majority_vote(proposal_id) {
+            voter_history.minority_votes += 1u32;
+        }
+*/
+        if voter_history.total_votes >= minority_rule.threshold && 
+           (voter_history.minority_votes * 100u32) / voter_history.total_votes > 75u32 {
+            //TODO: UPDATE REPUTATION
+            //update_reputation(voter, get_proposal_category(proposal_id), -minority_rule.slash_amount);
+        }
+
+        Mapping::set(voter_histories, voter, voter_history);
+    }
+
+    // Additional helper functions (to be implemented)
+    // function get_category_boost(voter: address, category: field) -> u64 { ... }
+    // function get_majority_vote(proposal_id: field) -> u64 { ... }
+    // function get_proposal_category(proposal_id: field) -> field { ... }
+    // function update_reputation(voter: address, category: field, amount: i64) { ... }
+
+    // Transition for submitting aggregated votes (for off-chain processing)
+    async transition submit_vote_aggregate(proposal_id: field, vote_count: u64, vote_tally: [u64; 10], vote_merkle_root: field) -> Future {
+        return finalize_submit_vote_aggregate(proposal_id, vote_count, vote_tally, vote_merkle_root);
+    }
+
+    async function finalize_submit_vote_aggregate(proposal_id: field, vote_count: u64, vote_tally: [u64; 10], vote_merkle_root: field) {
+        let vote_aggregate: VoteAggregate = VoteAggregate {
+            proposal_id: proposal_id,
+            vote_count: vote_count,
+            vote_tally: vote_tally,
+            vote_merkle_root: vote_merkle_root,
+        };
+        Mapping::set(vote_aggregates, proposal_id, vote_aggregate);
+    }
+
+    // Transition for verifying an individual vote
+    async transition verify_vote(proposal_id: field, voter: address, vote: u64, merkle_proof: field) -> Future {
+        return finalize_verify_vote(proposal_id, voter, vote, merkle_proof);
+    }
+
+    async function finalize_verify_vote(proposal_id: field, voter: address, vote: u64, merkle_proof: field) {
+        let vote_aggregate: VoteAggregate = Mapping::get(vote_aggregates, proposal_id);
+        let stored_proof: field = Mapping::get_or_use(vote_merkle_proofs, proposal_id, 0field);
+        assert(stored_proof == merkle_proof);
+    }
+}
+
 /*
 async function generate_encryption_params() -> EncryptionParams {
     // In a real implementation, the public key would be a predetermined DAO parameter
@@ -1580,4 +1913,3 @@ async function generate_encryption_params() -> EncryptionParams {
 
 
 
-}
