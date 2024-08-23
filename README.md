@@ -1,5 +1,9 @@
 # PrivaDAO: A Privacy-Preserving DAO Voting System with zk Proofs
 
+![title](_assets/privadao_home.png)
+
+
+
 ## Proposal Management is finished and deployed. 
 
 ### Sorry no video about it and it has many rough edges, but it's working to some degree and deployed.
@@ -9,6 +13,11 @@
 Broadcasting transaction to https://api.explorer.aleo.org/v1/testnet/transaction/broadcast...
 
 ⌛ Deployment at1ruqsury6t3ql8g5mypcnvvm24jz6wng5llragp3s7u2rh43vkyrsyms3le ('privadao_proposal_management_v1.aleo') has been broadcast to https://api.explorer.aleo.org/v1/testnet/transaction/broadcast.
+
+Broadcasting transaction to https://api.explorer.aleo.org/v1/testnet/transaction/broadcast...
+
+⌛ Deployment at1f78gs0dv7p5trs6svdn7wvmuy6dw6wfkq5evzrzxldq29xdvugpq245e3k ('privadao_core_v1.aleo') has been broadcast to https://api.explorer.aleo.org/v1/testnet/transaction/broadcast.
+
 
 
 ## Table of Contents
