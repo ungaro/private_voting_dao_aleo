@@ -625,144 +625,144 @@ program privadao_proposal_management_v1.aleo {
         let passed: bool = vote_aggregate.vote_tally[0u8] > total_votes / 2u64;
         if passed {
   
-            // Continuing from the previous execute_proposal finalize function
-            if proposal.security_level == 2u8 {
-                // For critical proposals, initiate multi-sig process
+        // Continuing from the previous execute_proposal finalize function
+        if proposal.security_level == 2u8 {
+            // For critical proposals, initiate multi-sig process
     
-    let multisig_proposal: MultiSigProposal = MultiSigProposal {
-        proposal_id: proposal_id,
-        approvals: 0u8,
-        required_approvals: 3u8, // Assuming we require 3 approvals for critical proposals
-    };
+            let multisig_proposal: MultiSigProposal = MultiSigProposal {
+                proposal_id: proposal_id,
+                approvals: 0u8,
+                required_approvals: 3u8, // Assuming we require 3 approvals for critical proposals
+            };
 
-    Mapping::set(multisig_proposals, proposal_id, multisig_proposal);
+            Mapping::set(multisig_proposals, proposal_id, multisig_proposal);
 
             } else {
                 // Execute based on proposal type
                 if proposal.proposal_type == 0u8 {
-    let action:TreasuryAction = proposal.treasury_action;
+                    let action:TreasuryAction = proposal.treasury_action;
 
-    let current_balance: TreasuryBalance = Mapping::get_or_use(treasury, action.asset, TreasuryBalance { asset: action.asset, amount: 0u64 });
-    
-    if action.action_type == 0u8 { // Transfer
-        assert(current_balance.amount >= action.amount);
-        Mapping::set(treasury, action.asset, TreasuryBalance {
-            asset: action.asset,
-            amount: current_balance.amount - action.amount,
-        });
-        // In a real implementation, you would transfer the tokens to the recipient here
-    } else if action.action_type == 1u8 { // Mint
-        Mapping::set(treasury, action.asset, TreasuryBalance {
-            asset: action.asset,
-            amount: current_balance.amount + action.amount,
-        });
-    } else if action.action_type == 2u8 { // Burn
-        assert(current_balance.amount >= action.amount);
-        Mapping::set(treasury, action.asset, TreasuryBalance {
-            asset: action.asset,
-            amount: current_balance.amount - action.amount,
-        });
-    }
+                    let current_balance: TreasuryBalance = Mapping::get_or_use(treasury, action.asset, TreasuryBalance { asset: action.asset, amount: 0u64 });
+                    
+                    if action.action_type == 0u8 { // Transfer
+                        assert(current_balance.amount >= action.amount);
+                        Mapping::set(treasury, action.asset, TreasuryBalance {
+                            asset: action.asset,
+                            amount: current_balance.amount - action.amount,
+                        });
+                        // In a real implementation, you would transfer the tokens to the recipient here
+                    } else if action.action_type == 1u8 { // Mint
+                        Mapping::set(treasury, action.asset, TreasuryBalance {
+                            asset: action.asset,
+                            amount: current_balance.amount + action.amount,
+                        });
+                    } else if action.action_type == 2u8 { // Burn
+                        assert(current_balance.amount >= action.amount);
+                        Mapping::set(treasury, action.asset, TreasuryBalance {
+                            asset: action.asset,
+                            amount: current_balance.amount - action.amount,
+                        });
+                    }
 
 
                 } else if proposal.proposal_type == 1u8 {
                     //execute_parameter_change(proposal_id);
 
-    let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
-        quorum_threshold: 100_000_000_000u64,
-        voting_period: 604_800u32, // 1 week
-        grace_period: 172_800u32, // 2 days
-    });
+                    let current_params: DAO_Parameters = Mapping::get_or_use(dao_parameters, 0field, DAO_Parameters {
+                        quorum_threshold: 100_000_000_000u64,
+                        voting_period: 604_800u32, // 1 week
+                        grace_period: 172_800u32, // 2 days
+                    });
 
-    // Assuming the proposal contains the new parameter values
-    let new_params: DAO_Parameters = DAO_Parameters {
-        quorum_threshold: proposal.treasury_action.amount, // Repurposing this field for parameter change
-        voting_period: proposal.voting_end_time - proposal.discussion_end_time,
-        grace_period: proposal.grace_period_end_time - proposal.voting_end_time,
-    };
+                    // Assuming the proposal contains the new parameter values
+                    let new_params: DAO_Parameters = DAO_Parameters {
+                        quorum_threshold: proposal.treasury_action.amount, // Repurposing this field for parameter change
+                        voting_period: proposal.voting_end_time - proposal.discussion_end_time,
+                        grace_period: proposal.grace_period_end_time - proposal.voting_end_time,
+                    };
 
-    Mapping::set(dao_parameters, 0field, new_params);
+                    Mapping::set(dao_parameters, 0field, new_params);
 
 
 
                 } else if proposal.proposal_type == 2u8 {
 
-    // In Leo, we can't directly upgrade contracts.
-    // Instead, we can set a flag indicating that an upgrade is ready,
-    // and the actual upgrade would be performed off-chain.    
-    // Assuming we use the 'description' field to store the new contract address or version
-    let upgrade_info: field = proposal.description;
-    
-    // Set an 'upgrade_ready' flag in a mapping
-    Mapping::set(contract_upgrades, 0field, upgrade_info);
+                    // In Leo, we can't directly upgrade contracts.
+                    // Instead, we can set a flag indicating that an upgrade is ready,
+                    // and the actual upgrade would be performed off-chain.    
+                    // Assuming we use the 'description' field to store the new contract address or version
+                    let upgrade_info: field = proposal.description;
+                    
+                    // Set an 'upgrade_ready' flag in a mapping
+                    Mapping::set(contract_upgrades, 0field, upgrade_info);
 
 
-    } else if proposal.proposal_type == 3u8 {
+                } else if proposal.proposal_type == 3u8 {
 
 
-        //Slash a proposal
-        let slash_proposal: SlashingProposal = Mapping::get(slashing_proposals, proposal_id);
-        let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, slash_proposal.target);
+                    //Slash a proposal
+                    let slash_proposal: SlashingProposal = Mapping::get(slashing_proposals, proposal_id);
+                    let  rep: DelegateeReputation = Mapping::get(delegatee_reputations, slash_proposal.target);
 
-        // Apply reputation decay before slashing
-        let time_elapsed: u32 = block.height - rep.last_update_time;
+                    // Apply reputation decay before slashing
+                    let time_elapsed: u32 = block.height - rep.last_update_time;
 
-        let rep_new:DelegateeReputation = DelegateeReputation {
-                delegatee_address: rep.delegatee_address,
-                category: rep.category,
-                reputation_score: calculate_reputation_decay(rep.reputation_score, time_elapsed) - slash_proposal.amount as u64,
-                proposals_supported: rep.proposals_supported,
-                proposals_succeeded: rep.proposals_succeeded,
-                last_update_time: block.height,
-            };
-
-
-        Mapping::set(delegatee_reputations, slash_proposal.target, rep_new);
-
-        // Remove the slashing proposal
-        Mapping::remove(slashing_proposals, proposal_id);
-
-                }
-        let proposal_executed:Proposal =  Proposal {
-                id: proposal.id,
-                creator:  proposal.creator,
-                description:  proposal.description,
-                proposal_type:  proposal.proposal_type,
-                vote_type:  proposal.vote_type,
-                options_count:  proposal.options_count,
-                treasury_action:  proposal.treasury_action,
-                status:  3u8,
-                discussion_end_time:  proposal.discussion_end_time,
-                voting_end_time:  proposal.voting_end_time,
-                grace_period_end_time:  proposal.grace_period_end_time,
-                required_sponsorship:  proposal.required_sponsorship,
-                total_sponsorship:  proposal.total_sponsorship,
-                veto_count:  proposal.veto_count,
-                veto_threshold:  proposal.veto_threshold,
-                amendment_count:  proposal.amendment_count,
-                parent_proposal:  proposal.parent_proposal,
-                tags:  proposal.tags,
-                category:  proposal.category,
-                min_participation:  proposal.min_participation,
-                security_level: proposal.security_level,
-            };
-
-                // Mark proposal as executed
-                //proposal.status = 3u8;
-                Mapping::set(proposals, proposal_id, proposal_executed);
-
-                // Update reputation of proposal creator
-                let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
+                    let rep_new:DelegateeReputation = DelegateeReputation {
+                            delegatee_address: rep.delegatee_address,
+                            category: rep.category,
+                            reputation_score: calculate_reputation_decay(rep.reputation_score, time_elapsed) - slash_proposal.amount as u64,
+                            proposals_supported: rep.proposals_supported,
+                            proposals_succeeded: rep.proposals_succeeded,
+                            last_update_time: block.height,
+                        };
 
 
-                let creator_reputation_new:Reputation = Reputation {
-                    score: creator_reputation.score + 100i64,
-                    proposal_count: creator_reputation.proposal_count,
-                    vote_count: creator_reputation.vote_count,
-                    successful_proposals: creator_reputation.successful_proposals + 1u32,
-                };
+                    Mapping::set(delegatee_reputations, slash_proposal.target, rep_new);
 
-                Mapping::set(user_reputation, proposal.creator, creator_reputation);
+                    // Remove the slashing proposal
+                    Mapping::remove(slashing_proposals, proposal_id);
+
+                            }
+                    let proposal_executed:Proposal =  Proposal {
+                            id: proposal.id,
+                            creator:  proposal.creator,
+                            description:  proposal.description,
+                            proposal_type:  proposal.proposal_type,
+                            vote_type:  proposal.vote_type,
+                            options_count:  proposal.options_count,
+                            treasury_action:  proposal.treasury_action,
+                            status:  3u8,
+                            discussion_end_time:  proposal.discussion_end_time,
+                            voting_end_time:  proposal.voting_end_time,
+                            grace_period_end_time:  proposal.grace_period_end_time,
+                            required_sponsorship:  proposal.required_sponsorship,
+                            total_sponsorship:  proposal.total_sponsorship,
+                            veto_count:  proposal.veto_count,
+                            veto_threshold:  proposal.veto_threshold,
+                            amendment_count:  proposal.amendment_count,
+                            parent_proposal:  proposal.parent_proposal,
+                            tags:  proposal.tags,
+                            category:  proposal.category,
+                            min_participation:  proposal.min_participation,
+                            security_level: proposal.security_level,
+                        };
+
+                            // Mark proposal as executed
+                            //proposal.status = 3u8;
+                            Mapping::set(proposals, proposal_id, proposal_executed);
+
+                            // Update reputation of proposal creator
+                            let  creator_reputation: Reputation = Mapping::get(user_reputation, proposal.creator);
+
+
+                            let creator_reputation_new:Reputation = Reputation {
+                                score: creator_reputation.score + 100i64,
+                                proposal_count: creator_reputation.proposal_count,
+                                vote_count: creator_reputation.vote_count,
+                                successful_proposals: creator_reputation.successful_proposals + 1u32,
+                            };
+
+                            Mapping::set(user_reputation, proposal.creator, creator_reputation);
 
 
 
