@@ -1,4 +1,4 @@
-import privadao_governance_token_v1.aleo;
+//import privadao_governance_token_v1.aleo;
 
 program privadao_core_v1.aleo {
     // Structs
@@ -21,9 +21,10 @@ program privadao_core_v1.aleo {
     // Mappings
     mapping dao_config: field => DAOConfig;
     mapping dao_permissions: field => DAOPermissions;
+    //mapping dao_test:field  =>Da ;
 
     // Transitions
-    transition initialize_dao(
+    async transition initialize_dao(
         name: field,
         token_address: address,
         proposal_address: address,
@@ -31,12 +32,13 @@ program privadao_core_v1.aleo {
         reputation_address: address,
         treasury_address: address,
         staking_address: address
-    ) -> field {
+    ) -> Future {
         let dao_id: field = BHP256::hash_to_field(name);
-        return dao_id then async function(dao_id, name, token_address, proposal_address, voting_address, reputation_address, treasury_address, staking_address);
+        let caller:address = self.caller;
+        return finalize_initialize_dao(dao_id, name, token_address, proposal_address, voting_address, reputation_address, treasury_address, staking_address, caller);
     }
 
-    async function initialize_dao(
+    async function finalize_initialize_dao(
         dao_id: field,
         name: field,
         token_address: address,
@@ -44,7 +46,8 @@ program privadao_core_v1.aleo {
         voting_address: address,
         reputation_address: address,
         treasury_address: address,
-        staking_address: address
+        staking_address: address,
+        caller:address
     ) {
         let config: DAOConfig = DAOConfig {
             name: name,
@@ -58,49 +61,129 @@ program privadao_core_v1.aleo {
         Mapping::set(dao_config, dao_id, config);
 
         let permissions: DAOPermissions = DAOPermissions {
-            admin: self.caller,
+            admin: caller,
             can_update_config: true,
             can_update_permissions: true,
         };
         Mapping::set(dao_permissions, dao_id, permissions);
     }
 
-    transition update_component_address(dao_id: field, component: field, new_address: address) -> bool {
-        return true then async function(dao_id, component, new_address);
+    async transition update_component_address(dao_id: field, component: u8, new_address: address) -> Future {
+        let caller:address = self.caller;
+        return finalize_update_component_address(dao_id, component, new_address,caller);
     }
 
-    async function update_component_address(dao_id: field, component: field, new_address: address) {
-        let permissions: DAOPermissions = Mapping::get(dao_permissions, dao_id);
-        assert(permissions.admin == self.caller && permissions.can_update_config);
 
-        let mut config: DAOConfig = Mapping::get(dao_config, dao_id);
+// COMPONENTS:
+// TOKEN: 1
+// PROPOSAL: 2
+// VOTING: 3
+// REPUTATION: 4
+// TREASURY: 5
+// STAKING: 6
+
+    async function finalize_update_component_address(dao_id: field, component: u8, new_address: address, caller:address) {
+        let permissions: DAOPermissions = Mapping::get(dao_permissions, dao_id);
+        assert(permissions.admin == caller && permissions.can_update_config);
+
+        let  config: DAOConfig = Mapping::get(dao_config, dao_id);
         
-        if component == field("token") {
-            config.token_address = new_address;
-        } else if component == field("proposal") {
-            config.proposal_address = new_address;
-        } else if component == field("voting") {
-            config.voting_address = new_address;
-        } else if component == field("reputation") {
-            config.reputation_address = new_address;
-        } else if component == field("treasury") {
-            config.treasury_address = new_address;
-        } else if component == field("staking") {
-            config.staking_address = new_address;
+
+
+        if component == 1u8 {
+
+
+        let new_config:DAOConfig = DAOConfig{
+            name: config.name,
+        token_address: new_address,
+        proposal_address: config.proposal_address,
+        voting_address: config.voting_address,
+        reputation_address: config.reputation_address,
+        treasury_address: config.treasury_address,
+        staking_address: config.staking_address,
+};
+        Mapping::set(dao_config, dao_id, new_config);
+
+        } else if component == 2u8 {
+          //  config.proposal_address = new_address;
+
+        let new_config:DAOConfig = DAOConfig{
+            name: config.name,
+        token_address: config.token_address,
+        proposal_address: new_address,
+        voting_address: config.voting_address,
+        reputation_address: config.reputation_address,
+        treasury_address: config.treasury_address,
+        staking_address: config.staking_address,
+};
+        Mapping::set(dao_config, dao_id, new_config);
+
+
+        } else if component == 3u8 {
+            //config.voting_address = new_address;
+        let new_config:DAOConfig = DAOConfig{
+            name: config.name,
+        token_address: config.token_address,
+        proposal_address: config.proposal_address,
+        voting_address: new_address,
+        reputation_address: config.reputation_address,
+        treasury_address: config.treasury_address,
+        staking_address: config.staking_address,
+};
+        Mapping::set(dao_config, dao_id, new_config);
+
+        } else if component == 4u8 {
+            //config.reputation_address = new_address;
+        let new_config:DAOConfig = DAOConfig{
+            name: config.name,
+            token_address: config.token_address,
+            proposal_address: config.proposal_address,
+            voting_address: config.voting_address,
+            reputation_address: new_address,
+            treasury_address: config.treasury_address,
+            staking_address: config.staking_address,
+        };
+                Mapping::set(dao_config, dao_id, new_config);
+
+        } else if component == 5u8 {
+        let new_config:DAOConfig = DAOConfig{
+            name: config.name,
+            token_address: config.token_address,
+            proposal_address: config.proposal_address,
+            voting_address: config.voting_address,
+            reputation_address: config.reputation_address,
+            treasury_address: new_address,
+            staking_address: config.staking_address,
+        };
+                        Mapping::set(dao_config, dao_id, new_config);
+
+        } else if component == 6u8 {
+            //config.staking_address = new_address;
+        let new_config:DAOConfig = DAOConfig{
+            name: config.name,
+            token_address: config.token_address,
+            proposal_address: config.proposal_address,
+            voting_address: config.voting_address,
+            reputation_address: config.reputation_address,
+            treasury_address: config.treasury_address,
+            staking_address: new_address,
+        };
+                                Mapping::set(dao_config, dao_id, new_config);
+
         } else {
             assert(false); // Invalid component
         }
 
-        Mapping::set(dao_config, dao_id, config);
     }
 
-    transition update_permissions(dao_id: field, new_admin: address, can_update_config: bool, can_update_permissions: bool) -> bool {
-        return true then async function(dao_id, new_admin, can_update_config, can_update_permissions);
+    async transition update_permissions(dao_id: field, new_admin: address, can_update_config: bool, can_update_permissions: bool) -> Future {
+        let caller:address = self.caller;
+        return finalize_update_permissions(dao_id, new_admin, can_update_config, can_update_permissions,caller);
     }
 
-    async function update_permissions(dao_id: field, new_admin: address, can_update_config: bool, can_update_permissions: bool) {
+    async function finalize_update_permissions(dao_id: field, new_admin: address, can_update_config: bool, can_update_permissions: bool, caller:address) {
         let current_permissions: DAOPermissions = Mapping::get(dao_permissions, dao_id);
-        assert(current_permissions.admin == self.caller && current_permissions.can_update_permissions);
+        assert(current_permissions.admin == caller && current_permissions.can_update_permissions);
 
         let new_permissions: DAOPermissions = DAOPermissions {
             admin: new_admin,
@@ -110,31 +193,17 @@ program privadao_core_v1.aleo {
         Mapping::set(dao_permissions, dao_id, new_permissions);
     }
 
-    transition view_dao_config(dao_id: field) -> DAOConfig {
-        return DAOConfig {
-            name: field(""),
-            token_address: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-            proposal_address: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-            voting_address: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-            reputation_address: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-            treasury_address: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-            staking_address: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-        } then async function(dao_id);
-    }
 
-    async function view_dao_config(dao_id: field) -> DAOConfig {
-        return Mapping::get(dao_config, dao_id);
-    }
 
-    transition view_dao_permissions(dao_id: field) -> DAOPermissions {
-        return DAOPermissions {
-            admin: aleo1qqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqqq3ljyzc,
-            can_update_config: false,
-            can_update_permissions: false,
-        } then async function(dao_id);
-    }
+/*
+view_dao_config
+GET /testnet/program/privadao_core_v1/mapping/DAOConfig/dao_id
 
-    async function view_dao_permissions(dao_id: field) -> DAOPermissions {
-        return Mapping::get(dao_permissions, dao_id);
-    }
+
+view_dao_permissions
+GET /testnet/program/privadao_core_v1/mapping/dao_permissions/dao_id
+
+
+*/
+
 }

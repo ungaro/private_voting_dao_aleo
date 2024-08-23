@@ -2,9 +2,11 @@ import privadao_core_v1.aleo;
 
 program privadao_reputation_system_v1.aleo {
     // Constants
-    const REPUTATION_HALF_LIFE: u32 = 30 * 24 * 60 * 60; // 30 days in seconds
+    //const REPUTATION_HALF_LIFE: u32 = 30 * 24 * 60 * 60; // 30 days in seconds
+    const REPUTATION_HALF_LIFE: u32 = 2592000u32; // 30 days in seconds
     const MIN_REPUTATION: i64 = -1000i64;
-    const REHABILITATION_PERIOD: u32 = 30 * 24 * 60 * 60; // 30 days in seconds
+    const REHABILITATION_PERIOD: u32 = 2592000u32; // 30 days in seconds
+    
 
     // Structs
     struct Reputation {
