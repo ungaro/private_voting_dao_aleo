@@ -18,7 +18,122 @@ Broadcasting transaction to https://api.explorer.aleo.org/v1/testnet/transaction
 
 ⌛ Deployment at1f78gs0dv7p5trs6svdn7wvmuy6dw6wfkq5evzrzxldq29xdvugpq245e3k ('privadao_core_v1.aleo') has been broadcast to https://api.explorer.aleo.org/v1/testnet/transaction/broadcast.
 
+## Diagram
 
+```mermaid
+graph TD;
+    User([User]) --> Join[Join DAO];
+    Join --> TokenAcq[Acquire Governance Tokens];
+    TokenAcq --> |Initial Distribution| InitialTokens[Receive Initial Tokens];
+    TokenAcq --> |Purchase| BuyTokens[Buy Tokens];
+    
+    InitialTokens --> Stake[Stake Tokens];
+    BuyTokens --> Stake;
+    Stake --> |Update| UpdateStakes[Update stakes mapping];
+    
+    UpdateStakes --> ParticipateDAO{Participate in DAO};
+    
+    ParticipateDAO --> |Create| CreateProposal[Create Proposal];
+    CreateProposal --> |Check| CheckReputation[Check user_reputation];
+    CheckReputation --> |Verify| VerifyTier[Verify governance_tiers];
+    VerifyTier --> |Generate zk Proof| ProofProposalCreation[Generate Proposal Creation Proof];
+    ProofProposalCreation --> SubmitProposal[Submit Proposal];
+    SubmitProposal --> |Update| UpdateProposals[Update proposals mapping];
+    UpdateProposals --> |Set| SetProposalStatus[Set proposal_status];
+    SetProposalStatus --> DiscussionPeriod[Discussion Period];
+    
+    DiscussionPeriod --> |Comment| AddComment[Add Comment];
+    AddComment --> |Update| UpdateComments[Update proposal_comments];
+    
+    DiscussionPeriod --> |Sponsor| SponsorProposal[Sponsor Proposal];
+    SponsorProposal --> |Update| UpdateSponsorships[Update proposal_sponsorships];
+    
+    DiscussionPeriod --> VotingPeriod[Voting Period];
+    
+    ParticipateDAO --> |Vote| Vote[Vote on Proposals];
+    Vote --> |Check| CheckVoteType[Check vote_types];
+    CheckVoteType --> |Generate zk Proof| ProofVote[Generate Vote Proof];
+    ProofVote --> SubmitVote[Submit Vote];
+    SubmitVote --> |Update| UpdateVotes[Update votes mapping];
+    UpdateVotes --> |Record| RecordReceipt[Record in vote_receipts];
+    RecordReceipt --> |Update| UpdateVoteCounts[Update vote_counts];
+    UpdateVoteCounts --> |Aggregate| AggregateVotes[Aggregate in vote_aggregates];
+    AggregateVotes --> |Generate| GenerateMerkleProof[Generate vote_merkle_proofs];
+    
+    Vote --> |Conviction Voting| ConvictionVote[Cast Conviction Vote];
+    ConvictionVote --> |Update| UpdateConvictionVotes[Update conviction_votes];
+    
+    VotingPeriod --> |Veto| VetoProposal[Veto Proposal];
+    VetoProposal --> |Update| UpdateUserVetos[Update user_vetos];
+    
+    VotingPeriod --> |End of Voting| TallyVotes[Tally Votes];
+    TallyVotes --> |Generate zk Proof| ProofTally[Generate Tally Proof];
+    ProofTally --> |Update| UpdateResults[Update vote_results];
+    UpdateResults --> PublishResults[Publish Results];
+    
+    PublishResults --> |If Passed| ExecutionPeriod[Execution Period];
+    ExecutionPeriod --> |For Treasury Actions| TreasuryExecution[Execute Treasury Action];
+    TreasuryExecution --> |Update| UpdateTreasury[Update treasury mapping];
+    TreasuryExecution --> |Generate zk Proof| ProofTreasuryAction[Generate Treasury Action Proof];
+    
+    ExecutionPeriod --> |For Parameter Changes| UpdateParameters[Update DAO Parameters];
+    UpdateParameters --> |Modify| ModifyDAOParams[Modify dao_parameters];
+    
+    ExecutionPeriod --> |For Contract Upgrades| UpgradeContract[Upgrade Contract];
+    UpgradeContract --> |Update| UpdateContractUpgrades[Update contract_upgrades];
+    
+    ParticipateDAO --> |Delegate| DelegateVotes[Delegate Votes];
+    DelegateVotes --> |Update| UpdateDelegations[Update delegations];
+    DelegateVotes --> |Category Specific| UpdateCategoryDelegations[Update category_delegations];
+    DelegateVotes --> |Generate zk Proof| ProofDelegation[Generate Delegation Proof];
+    
+    ParticipateDAO --> |View| ViewProposals[View Proposals];
+    
+    ParticipateDAO --> RepManage{Reputation Management};
+    RepManage --> |Earn| EarnRep[Earn Reputation];
+    RepManage --> |Use| UseRep[Use Reputation];
+    RepManage --> |View| ViewRep[View Reputation];
+    
+    EarnRep --> |Update| UpdateRep[Update user_reputation];
+    UpdateRep --> |For Delegatees| UpdateDelegateeRep[Update delegatee_reputations];
+    UpdateRep --> |Generate zk Proof| ProofRepUpdate[Generate Reputation Update Proof];
+    
+    ParticipateDAO --> Treasury{Treasury Interaction};
+    Treasury --> |View| ViewTreasury[View Treasury Status];
+    Treasury --> |Propose| ProposeTreasuryAction[Propose Treasury Action];
+    
+    ParticipateDAO --> Multisig{Multi-sig Operations};
+    Multisig --> |Create| CreateMultisig[Create Multi-sig Proposal];
+    CreateMultisig --> |Update| UpdateMultisigProposals[Update multisig_proposals];
+    Multisig --> |Sign| SignMultisig[Sign Multi-sig Proposal];
+    
+    ParticipateDAO --> OffChainInt{Off-chain Interaction};
+    OffChainInt --> |View| ViewStats[View DAO Statistics];
+    OffChainInt --> |Participate| OffChainDiscuss[Participate in Off-chain Discussions];
+    OffChainInt --> |Submit| SubmitOffChainData[Submit Off-chain Data];
+    SubmitOffChainData --> |Generate zk Proof| ProofOffChainData[Generate Off-chain Data Proof];
+    
+    ParticipateDAO --> |Unstake| UnstakeTokens[Unstake Tokens];
+    UnstakeTokens --> |Check| CheckLockPeriod[Check token_locks];
+    UnstakeTokens --> |Generate zk Proof| ProofUnstake[Generate Unstake Proof];
+    
+    ParticipateDAO --> |Claim| ClaimRewards[Claim Staking Rewards];
+    ClaimRewards --> |Generate zk Proof| ProofRewardClaim[Generate Reward Claim Proof];
+    
+    ParticipateDAO --> |Propose Slashing| ProposeSlashing[Propose Slashing];
+    ProposeSlashing --> |Update| UpdateSlashingProposals[Update slashing_proposals];
+    
+    ParticipateDAO --> |View Slashing Rules| ViewSlashingRules[View Slashing Rules];
+    ViewSlashingRules --> |Retrieve| GetSlashingRules[Retrieve from slashing_rules];
+
+    subgraph "Legend"
+        User([User Action])
+        Process[Process]
+        Decision{Decision}
+        ZKProof[ZK Proof Generation]
+        Mapping[(Mapping Update)]
+    end
+```
 
 ## Table of Contents
 1. [Introduction](#introduction)
